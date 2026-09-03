@@ -12,6 +12,45 @@ function decodeEntities(html: string): string {
     .replace(/&#0*39;/g, "'");
 }
 
+// Short function words as they look when a run of English prose has been
+// reversed character-by-character ("the" -> "eht"). Bangkok Post does this to
+// the article body and flips it back visually with CSS
+// (unicode-bidi: bidi-override; direction: rtl), so a raw-HTML reader gets
+// mirror text. Counting these against their normal spellings tells us whether
+// a given line is reversed.
+const REVERSED_WORDS = /(?<![a-z])(eht|dna|fo|ot|ni|si|saw|era|no|yb|rof|taht|htiw|siht|dias)(?![a-z])/gi;
+const FORWARD_WORDS = /(?<![a-z])(the|and|of|to|in|is|was|are|on|by|for|that|with|this|said)(?![a-z])/gi;
+
+function reversedScore(s: string): number {
+  return (s.match(REVERSED_WORDS) ?? []).length;
+}
+function forwardScore(s: string): number {
+  return (s.match(FORWARD_WORDS) ?? []).length;
+}
+
+/** True when the text still reads as reversed English overall — used to reject a page we couldn't recover. */
+function looksReversed(text: string): boolean {
+  const r = reversedScore(text);
+  return r >= 5 && r > forwardScore(text) * 2;
+}
+
+/**
+ * Undo per-line character-reversal obfuscation. A full-line reversal restores
+ * word order, spacing and punctuation in one go, so we only need to decide,
+ * line by line, whether that line is reversed and flip the ones that are —
+ * leaving an unobfuscated lead paragraph on its own line untouched.
+ */
+function deobfuscate(text: string): string {
+  return text
+    .split("\n")
+    .map((line) =>
+      line.length > 20 && reversedScore(line) >= 3 && reversedScore(line) > forwardScore(line)
+        ? [...line].reverse().join("")
+        : line,
+    )
+    .join("\n");
+}
+
 /**
  * Crude readability-style extraction: strip obvious non-content blocks, prefer
  * an <article> element if present, then join paragraph text. No DOMParser is
@@ -40,7 +79,7 @@ function extractArticleText(html: string): string {
     .replace(/\n{2,}/g, "\n")
     .trim();
 
-  return text;
+  return deobfuscate(text);
 }
 
 /**
@@ -98,7 +137,11 @@ export async function fetchArticleText(url: string): Promise<string | null> {
     if (!html) return null;
 
     const text = extractArticleText(html);
-    return text.length >= MIN_LENGTH ? text.slice(0, MAX_LENGTH) : null;
+    if (text.length < MIN_LENGTH) return null;
+    // Recovery failed (novel obfuscation, partial reversal, etc) — better to
+    // fall back to the RSS/search snippet than store mirror text.
+    if (looksReversed(text)) return null;
+    return text.slice(0, MAX_LENGTH);
   } catch {
     return null;
   } finally {
