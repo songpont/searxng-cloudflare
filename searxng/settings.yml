@@ -11,8 +11,9 @@ search:
     - json
 
 server:
-  # NOTE: replace with your own random secret before any real deployment
-  # generate one with: openssl rand -hex 32
+  # Real value is injected at runtime from the SEARXNG_SECRET env var
+  # (a Cloudflare Worker secret passed into the container — see src/search.ts).
+  # This placeholder is only used for local runs without that secret set.
   secret_key: "ultrasecretkey"
   limiter: false
   image_proxy: true

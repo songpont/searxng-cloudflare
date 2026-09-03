@@ -2,9 +2,19 @@ import { Container, getContainer } from "@cloudflare/containers";
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "./env";
 
-export class SearxngContainer extends Container {
+export class SearxngContainer extends Container<Env> {
   defaultPort = 8080;
   sleepAfter = "5m";
+
+  constructor(ctx: DurableObject["ctx"], env: Env) {
+    super(ctx, env);
+    // SearXNG reads server.secret_key from SEARXNG_SECRET when set, overriding
+    // the placeholder baked into settings.yml. Kept out of the image so the
+    // real signing key never lands in git or a container layer.
+    if (env.SEARXNG_SECRET) {
+      this.envVars = { ...this.envVars, SEARXNG_SECRET: env.SEARXNG_SECRET };
+    }
+  }
 }
 
 export interface SearchConfig {

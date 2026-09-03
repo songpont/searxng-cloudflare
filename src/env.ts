@@ -8,4 +8,5 @@ export interface Env {
   DEEPSEEK_API_KEY?: string;
   DEEPSEEK_MODEL: string;
   ADMIN_TOKEN?: string;
+  SEARXNG_SECRET?: string;
 }
