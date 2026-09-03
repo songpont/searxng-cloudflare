@@ -269,6 +269,7 @@ D1 ในเครื่องรันไฟล์ migration แบบเดี
 
 - **ไม่มี DOM ใน Workers** — ทั้ง `rss.ts` และ `article-content.ts` ใช้ regex ล้วน สกัดพอได้ย่อหน้านำของหน้าข่าวทั่วไป ไม่ได้ครอบคลุมทุก layout
 - **การคลาย gzip เอง** — บาง origin (เช่น Bangkok Post หลัง CDN ByteArk) ส่ง `Content-Encoding: gzip` กลับมาเสมอแม้ runtime ไม่ได้ร้องขอ ทำให้ `res.text()` ได้ไบต์ขยะ `article-content.ts` จึงตรวจ gzip magic number (`0x1f 0x8b`) เองแล้วคลายด้วย `DecompressionStream` — ถ้า runtime คลายให้แล้วก็ปล่อยผ่าน
+- **แก้ข้อความกลับหัว (reversed-text)** — Bangkok Post เขียนเนื้อบทความแบบ**สลับตัวอักษรจากหลังมาหน้า**ใน HTML แล้วพลิกกลับด้วย CSS (`unicode-bidi: bidi-override`) เพื่อกัน scraper `extractArticleText` จึงตรวจทีละบรรทัดว่ากลับหัวไหม (นับคำเชื่อมภาษาอังกฤษแบบปกติเทียบกับแบบกลับหัว) แล้ว reverse บรรทัดนั้นคืน ถ้ายังอ่านไม่ออกก็คืน `null` เพื่อ fallback ไปใช้ snippet จาก RSS แทน
 - **automation ใช้ config ล็อกไว้** — collector ค้นด้วย `AUTOMATION_DEFAULTS` เสมอ ไม่รับค่าที่ผู้ดูแลปรับไว้เอง (เช่น บังคับ `language: th` จะทำให้คำค้นภาษาอังกฤษได้ผลลัพธ์ศูนย์)
 - **กันข่าวซ้ำ** — `INSERT OR IGNORE` ตามคอลัมน์ `url` (UNIQUE) การค้นซ้ำจะไม่เขียนทับของเดิม
 - **ช่วงเวลาของรายงาน** — ยึด `published_at` ของข่าวเป็นหลัก ข่าวที่ไม่รู้วันที่ถึง fallback ไปใช้ `collected_at` เพื่อไม่ให้ตกหล่น
