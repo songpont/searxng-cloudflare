@@ -1,0 +1,87 @@
+{
+  "_readme": [
+    "แก้ไฟล์นี้แล้วรัน `npm run deploy` เพื่ออัปเดต — ไม่ต้องแก้โค้ด",
+    "keywords: คำค้นที่ใช้กับ source ประเภท site และใช้กรอง item ของ source ประเภท rss",
+    "sources[].type = 'rss'  -> ต้องมี 'url' เป็นลิงก์ RSS/Atom feed จริง ระบบจะดึงมาทั้งฟีดแล้วกรองด้วย keywords",
+    "sources[].type = 'site' -> ต้องมี 'domain' ระบบจะค้นผ่าน SearXNG ด้วย 'keyword site:domain' (ใช้ได้กับเว็บข่าว, เว็บหน่วยงาน, หรือแม้แต่ facebook.com/ชื่อเพจ เพราะ Facebook ไม่มี public RSS แล้ว)",
+    "sources[].trust = 'official' | 'news' | 'social' — ใช้จัดลำดับความน่าเชื่อถือตอนสรุปข่าวรายสัปดาห์ (official จะถูกอ้างอิงก่อน)",
+    "ลบ/เพิ่ม/ปิดชั่วคราวได้อิสระ — ตั้ง \"enabled\": false เพื่อปิดโดยไม่ต้องลบทิ้ง",
+    "หลังเก็บข่าวจาก sources ด้านล่างในแต่ละวัน (รอบ 1) ระบบจะให้ AI อ่านหัวข้อที่เจอแล้วสกัดคำค้นเจาะจงเพิ่ม 3-5 คำ (ชื่อบริษัท/หน่วยงาน/สถานที่ที่ถูกพาดพิง) แล้วค้นเว็บเปิดเพิ่มอัตโนมัติ (รอบ 2) — ผลจากรอบนี้ถูก tag trust='web' (ยังไม่ยืนยัน) แยกจาก source list ด้านล่าง ไม่ต้องตั้งค่าอะไรเพิ่มสำหรับส่วนนี้"
+  ],
+
+  "keywords": [
+    "แม่น้ำกก สารพิษ",
+    "แม่น้ำกก ปนเปื้อน",
+    "แม่น้ำสาย สารพิษ",
+    "แม่น้ำโขง มลพิษ",
+    "แม่น้ำสาละวิน มลพิษ",
+    "สารหนู แม่น้ำกก",
+    "Mekong river pollution",
+    "Salween river contamination"
+  ],
+
+  "sources": [
+    {
+      "id": "onwr",
+      "name": "สำนักงานทรัพยากรน้ำแห่งชาติ (สทนช.)",
+      "type": "site",
+      "trust": "official",
+      "enabled": true,
+      "domain": "onwr.go.th"
+    },
+    {
+      "id": "mrc",
+      "name": "Mekong River Commission",
+      "type": "rss",
+      "trust": "official",
+      "enabled": true,
+      "url": "https://www.mrcmekong.org/feed/",
+      "note": "ตรวจสอบแล้วว่าใช้งานได้จริง (2026-09-03)"
+    },
+    {
+      "id": "pcd-facebook",
+      "name": "กรมควบคุมมลพิษ (เพจ Facebook)",
+      "type": "site",
+      "trust": "official",
+      "enabled": true,
+      "domain": "facebook.com/PCDforNature",
+      "note": "Facebook ไม่เปิด public RSS แล้ว จึงค้นผ่าน search engine ด้วย site: แทน อาจไม่ครบทุกโพสต์"
+    },
+    {
+      "id": "bangkokpost-rss",
+      "name": "Bangkok Post — Thailand",
+      "type": "rss",
+      "trust": "news",
+      "enabled": true,
+      "url": "https://www.bangkokpost.com/rss/data/thailand.xml",
+      "note": "ตรวจสอบแล้วว่าใช้งานได้จริง (2026-09-03)"
+    },
+    {
+      "id": "thaipr",
+      "name": "ThaiPR.net",
+      "type": "rss",
+      "trust": "news",
+      "enabled": true,
+      "url": "https://www.thaipr.net/feed",
+      "note": "ตรวจสอบแล้วว่าใช้งานได้จริง (2026-09-03) — ryt9.com ปิดให้บริการ RSS แล้ว ไม่ได้ใส่"
+    },
+    {
+      "id": "bangkokpost-site",
+      "name": "Bangkok Post (ค้นย้อนหลัง)",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "bangkokpost.com",
+      "note": "RSS ด้านบนเห็นแค่ข่าวล่าสุด ตัวนี้ค้นย้อนหลังทั้งเว็บผ่าน Google เพื่อจับข่าวเก่าที่ RSS ไม่ครอบคลุม"
+    },
+    {
+      "id": "prachatai",
+      "name": "ประชาไท",
+      "type": "site",
+      "trust": "news",
+      "enabled": false,
+      "domain": "prachatai.com",
+      "note": "ตัวอย่าง source ที่ปิดไว้ก่อน ('enabled': false) เปิดใช้เมื่อพร้อม"
+    }
+  ]
+}

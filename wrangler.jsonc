@@ -1,0 +1,53 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cloudflare-searxng",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+
+  "containers": [
+    {
+      "class_name": "SearxngContainer",
+      "image": "./Dockerfile",
+      "max_instances": 2
+    }
+  ],
+
+  "durable_objects": {
+    "bindings": [
+      { "name": "SEARXNG_CONTAINER", "class_name": "SearxngContainer" },
+      { "name": "CONFIG_STORE", "class_name": "ConfigStore" }
+    ]
+  },
+
+  "d1_databases": [
+    {
+      "binding": "river_watch_db",
+      "database_name": "river-watch-db",
+      "database_id": "66f16b68-eb7a-497a-97b7-4532a29c2559"
+    }
+  ],
+
+  "triggers": {
+    // times are UTC; ICT = UTC+7
+    // daily collection: 20:00 UTC = 03:00 ICT
+    // weekly summary: Monday 20:00 UTC = Tuesday 03:00 ICT (summarizes the prior 7 days)
+    "crons": ["0 20 * * *", "0 20 * * 1"]
+  },
+
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["SearxngContainer", "ConfigStore"]
+    }
+  ],
+
+  "vars": {
+    "DEEPSEEK_MODEL": "deepseek-chat"
+  }
+}

@@ -1,0 +1,2 @@
+DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ADMIN_TOKEN=generate-with-openssl-rand-hex-32

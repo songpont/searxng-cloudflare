@@ -1,0 +1,21 @@
+use_default_settings: true
+
+general:
+  instance_name: "searxng-cf-test"
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  formats:
+    - html
+    - json
+
+server:
+  # NOTE: replace with your own random secret before any real deployment
+  # generate one with: openssl rand -hex 32
+  secret_key: "ultrasecretkey"
+  limiter: false
+  image_proxy: true
+
+ui:
+  static_use_hash: true

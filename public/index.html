@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ติดตามสถานการณ์แม่น้ำกก · สาย · โขง · สาละวิน</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Sarabun", sans-serif;
+    background: #f7f8fa;
+    color: #1f2430;
+  }
+  header {
+    padding: 1.8rem 1.5rem 1.4rem;
+    background: #ffffff;
+    border-bottom: 1px solid #e2e5ea;
+  }
+  header .inner { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 1.3rem; font-weight: 700; margin: 0 0 0.25rem; }
+  .subtitle { color: #6b7280; font-size: 0.85rem; }
+
+  .layout {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1.8rem 1.5rem 4rem;
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 2rem;
+    align-items: start;
+  }
+  @media (max-width: 760px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  aside {
+    background: #ffffff;
+    border: 1px solid #e2e5ea;
+    border-radius: 10px;
+    padding: 1rem;
+    position: sticky;
+    top: 1.5rem;
+  }
+  aside h2 { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: #8a91a0; margin: 0 0 0.75rem; }
+  .week-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    padding: 0.55rem 0.6rem;
+    margin-bottom: 0.2rem;
+    cursor: pointer;
+    font: inherit;
+    color: #1f2430;
+  }
+  .week-item:hover { background: #f0f2f5; }
+  .week-item.active { background: #e7f0ff; color: #1a56db; font-weight: 600; }
+  .week-item .range { font-size: 0.82rem; }
+  .week-item .n { font-size: 0.72rem; color: #8a91a0; }
+  .week-item.active .n { color: #4c7fd9; }
+
+  main { min-width: 0; }
+  section { margin-bottom: 2.2rem; }
+  .card {
+    background: #ffffff;
+    border: 1px solid #e2e5ea;
+    border-radius: 10px;
+    padding: 1.4rem 1.6rem;
+  }
+  .card h2 { font-size: 0.95rem; margin: 0 0 0.9rem; color: #1f2430; }
+  .card-meta { color: #8a91a0; font-size: 0.78rem; margin-top: 1rem; padding-top: 0.8rem; border-top: 1px solid #eef0f3; }
+
+  .summary-html { font-size: 0.92rem; line-height: 1.75; }
+  .summary-html h2 { font-size: 1.1rem; margin: 1.2rem 0 0.5rem; }
+  .summary-html h3 { font-size: 1rem; margin: 1rem 0 0.4rem; }
+  .summary-html h4 { font-size: 0.92rem; margin: 0.8rem 0 0.3rem; }
+  .summary-html p { margin: 0.5rem 0; }
+  .summary-html ul, .summary-html ol { margin: 0.4rem 0; padding-left: 1.4rem; }
+  .summary-html li { margin: 0.3rem 0; }
+  .summary-html hr { border: none; border-top: 1px solid #e2e5ea; margin: 1.2rem 0; }
+  .summary-html a { color: #1a56db; text-decoration: none; }
+  .summary-html a:hover { text-decoration: underline; }
+  .summary-html strong { color: #111827; }
+
+  h2.section-title { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: #8a91a0; margin: 0 0 0.9rem; }
+
+  .article {
+    background: #ffffff;
+    border: 1px solid #e2e5ea;
+    border-radius: 8px;
+    padding: 0.9rem 1.1rem;
+    margin-bottom: 0.7rem;
+  }
+  .article a.title { color: #1a56db; text-decoration: none; font-size: 0.95rem; font-weight: 600; }
+  .article a.title:hover { text-decoration: underline; }
+  .dates {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+    color: #8a91a0;
+    font-size: 0.75rem;
+    margin: 0.35rem 0;
+  }
+  .dates span b { color: #5b6472; font-weight: 600; }
+  .snippet { color: #4b5563; font-size: 0.85rem; line-height: 1.45; margin-top: 0.3rem; }
+  .trust-tag {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 0.12rem 0.5rem;
+    border-radius: 4px;
+    margin-right: 0.4rem;
+  }
+  .trust-official { background: #e3f5e8; color: #1e7a3c; }
+  .trust-news { background: #fbf3d9; color: #8a6d1a; }
+  .trust-social { background: #eef0f3; color: #5b6472; }
+  .trust-web { background: #fdeadb; color: #a15a1a; }
+  .empty { color: #8a91a0; font-size: 0.85rem; padding: 1rem; }
+</style>
+</head>
+<body>
+<header>
+  <div class="inner">
+    <h1>ติดตามสถานการณ์สารพิษปนเปื้อนแม่น้ำ</h1>
+    <div class="subtitle">แม่น้ำกก · สาย · โขง · สาละวิน — เก็บข่าวทุกวัน สรุปสถานการณ์รายสัปดาห์โดย AI</div>
+  </div>
+</header>
+
+<div class="layout">
+  <aside>
+    <h2>สรุปรายสัปดาห์</h2>
+    <div id="weekList"><div class="empty">กำลังโหลด...</div></div>
+  </aside>
+
+  <main>
+    <section>
+      <div class="card">
+        <h2 id="summaryTitle">สรุปสถานการณ์รายสัปดาห์</h2>
+        <div class="summary-html" id="summaryBody"><div class="empty">กำลังโหลด...</div></div>
+        <div class="card-meta" id="summaryMeta"></div>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="section-title">ข่าวล่าสุดที่เก็บได้</h2>
+      <div id="newsSection"><div class="empty">กำลังโหลด...</div></div>
+    </section>
+  </main>
+</div>
+
+<script>
+function trustLabel(trust) {
+  return { official: "ทางการ", news: "สื่อ", social: "โซเชียล", web: "เว็บเปิด · ยังไม่ยืนยัน" }[trust] || trust;
+}
+
+function formatDate(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("th-TH", { year: "numeric", month: "short", day: "numeric" });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// Converts inline markdown (links, bold, italic) to HTML. Both [label](url)
+// links and bare http(s) URLs go through a placeholder token first, so a bare
+// URL is never re-linkified inside an href we just built. The token uses
+// curly braces plus letters so it can never collide with real article text
+// (unlike, say, a bare number, which does appear in normal sentences).
+function inlineMd(text) {
+  var placeholders = [];
+  function store(html) {
+    placeholders.push(html);
+    return "{{LINK" + (placeholders.length - 1) + "}}";
+  }
+
+  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, function (_m, label, url) {
+    return store('<a href="' + url + '" target="_blank" rel="noopener noreferrer">' + label + "</a>");
+  });
+  text = text.replace(/(https?:\/\/[^\s<>()"']+)/g, function (url) {
+    var trailingMatch = url.match(/[.,;:!?)\]]+$/);
+    var trailing = trailingMatch ? trailingMatch[0] : "";
+    var clean = trailing ? url.slice(0, -trailing.length) : url;
+    return store('<a href="' + clean + '" target="_blank" rel="noopener noreferrer">' + clean + "</a>") + trailing;
+  });
+
+  text = text.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  text = text.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, "<em>$1</em>");
+
+  return text.replace(/\{\{LINK(\d+)\}\}/g, function (_m, idx) {
+    return placeholders[Number(idx)];
+  });
+}
+
+// Converts the AI's markdown summary into safe HTML: text is HTML-escaped
+// first, so any injected tags stay inert text — only our own generated
+// elements below become real markup.
+function markdownToHtml(md) {
+  const lines = escapeHtml(md).split(/\r?\n/);
+  let html = "";
+  let i = 0;
+  const blockStart = /^(#{1,3} |[-*] |\d+\. |---+$)/;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (/^### /.test(line)) { html += `<h4>${inlineMd(line.slice(4))}</h4>`; i++; continue; }
+    if (/^## /.test(line)) { html += `<h3>${inlineMd(line.slice(3))}</h3>`; i++; continue; }
+    if (/^# /.test(line)) { html += `<h2>${inlineMd(line.slice(2))}</h2>`; i++; continue; }
+    if (/^---+$/.test(line.trim())) { html += "<hr>"; i++; continue; }
+    if (/^[-*] /.test(line)) {
+      const items = [];
+      while (i < lines.length && /^[-*] /.test(lines[i])) { items.push(`<li>${inlineMd(lines[i].slice(2))}</li>`); i++; }
+      html += `<ul>${items.join("")}</ul>`;
+      continue;
+    }
+    if (/^\d+\. /.test(line)) {
+      const items = [];
+      while (i < lines.length && /^\d+\. /.test(lines[i])) { items.push(`<li>${inlineMd(lines[i].replace(/^\d+\. /, ""))}</li>`); i++; }
+      html += `<ol>${items.join("")}</ol>`;
+      continue;
+    }
+    if (line.trim() === "") { i++; continue; }
+    const para = [line];
+    i++;
+    while (i < lines.length && lines[i].trim() !== "" && !blockStart.test(lines[i])) { para.push(lines[i]); i++; }
+    html += `<p>${inlineMd(para.join(" "))}</p>`;
+  }
+  return html;
+}
+
+let allSummaries = [];
+
+function renderSummary(summary) {
+  const body = document.getElementById("summaryBody");
+  const meta = document.getElementById("summaryMeta");
+  const title = document.getElementById("summaryTitle");
+  if (!summary) {
+    title.textContent = "สรุปสถานการณ์รายสัปดาห์";
+    body.innerHTML = '<div class="empty">ยังไม่มีสรุปรายสัปดาห์</div>';
+    meta.textContent = "";
+    return;
+  }
+  title.textContent = `สรุปสถานการณ์รายสัปดาห์ วันที่ ${formatDate(summary.week_start) ?? "?"} – ${formatDate(summary.week_end) ?? "?"}`;
+  body.innerHTML = markdownToHtml(summary.summary);
+  meta.textContent = `จาก ${summary.article_count} ข่าว · สรุปเมื่อ ${formatDate(summary.created_at) ?? "-"}`;
+}
+
+function renderWeekList() {
+  const el = document.getElementById("weekList");
+  if (allSummaries.length === 0) {
+    el.innerHTML = '<div class="empty">ยังไม่มีสรุป</div>';
+    return;
+  }
+  el.innerHTML = allSummaries.map((s, idx) => `
+    <button class="week-item ${idx === 0 ? "active" : ""}" data-idx="${idx}">
+      <div class="range">${formatDate(s.week_start) ?? "?"} – ${formatDate(s.week_end) ?? "?"}</div>
+      <div class="n">${s.article_count} ข่าว</div>
+    </button>
+  `).join("");
+  el.querySelectorAll(".week-item").forEach(btn => {
+    btn.addEventListener("click", () => {
+      el.querySelectorAll(".week-item").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      renderSummary(allSummaries[Number(btn.dataset.idx)]);
+    });
+  });
+}
+
+async function loadSummaries() {
+  try {
+    const res = await fetch("/api/summaries");
+    const data = await res.json();
+    allSummaries = data.summaries ?? [];
+    renderWeekList();
+    renderSummary(allSummaries[0] ?? null);
+  } catch (err) {
+    document.getElementById("weekList").innerHTML = '<div class="empty">โหลดไม่สำเร็จ</div>';
+  }
+}
+
+async function loadNews() {
+  const el = document.getElementById("newsSection");
+  try {
+    const res = await fetch("/api/news?limit=40");
+    const data = await res.json();
+    if (!data.articles || data.articles.length === 0) {
+      el.innerHTML = '<div class="empty">ยังไม่มีข่าวที่เก็บได้</div>';
+      return;
+    }
+    el.innerHTML = data.articles.map(a => `
+      <div class="article">
+        <span class="trust-tag trust-${a.trust}">${trustLabel(a.trust)}</span>
+        <a class="title" href="${a.url}" target="_blank" rel="noopener noreferrer">${a.title ?? a.url}</a>
+        <div class="dates">
+          <span><b>วันที่ข่าว:</b> ${formatDate(a.published_at) ?? "ไม่ระบุ"}</span>
+          <span><b>สืบค้นเมื่อ:</b> ${formatDate(a.collected_at) ?? "-"}</span>
+          <span>${a.source_name}</span>
+        </div>
+        <div class="snippet">${a.snippet ?? ""}</div>
+      </div>
+    `).join("");
+  } catch (err) {
+    el.innerHTML = '<div class="empty">โหลดข่าวไม่สำเร็จ</div>';
+  }
+}
+
+loadSummaries();
+loadNews();
+</script>
+</body>
+</html>
