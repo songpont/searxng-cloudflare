@@ -1,7 +1,7 @@
 import type { Env } from "../env";
 import { searchAutomated } from "../search";
 import { parseFeed } from "./rss";
-import { fetchArticleText } from "./article-content";
+import { fetchArticle } from "./article-content";
 import sourcesFile from "../../config/sources.json";
 
 interface Source {
@@ -67,15 +67,17 @@ function urlMatchesDomain(url: string, domainSpec: string): boolean {
 
 /**
  * Replaces each candidate's thin search/RSS snippet with the article's own
- * lead paragraphs when the fetch succeeds, run in parallel across the batch.
- * Falls back to the original snippet on any failure (blocked, JS-rendered
+ * lead paragraphs when the fetch succeeds, and fills in a publish date from the
+ * page markup when the feed/search result gave none. Run in parallel across the
+ * batch; falls back to the original snippet on any failure (blocked, JS-rendered
  * page with no server HTML, timeout, etc) rather than dropping the article.
  */
 async function enrichWithFullText(candidates: NewArticle[]): Promise<NewArticle[]> {
   return Promise.all(
     candidates.map(async (a) => {
-      const fullText = await fetchArticleText(a.url);
-      return fullText ? { ...a, snippet: fullText } : a;
+      const article = await fetchArticle(a.url);
+      if (!article) return a;
+      return { ...a, snippet: article.text, publishedAt: a.publishedAt ?? article.publishedAt };
     }),
   );
 }

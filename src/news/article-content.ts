@@ -117,8 +117,71 @@ async function readBody(res: Response): Promise<string> {
   }
 }
 
-/** Fetches the article page and returns its lead text, or null on any failure (blocked, non-HTML, too short to be real content, etc). */
-export async function fetchArticleText(url: string): Promise<string | null> {
+/** Coerce a date string to ISO 8601, rejecting anything that isn't a plausible news publish date (parse failure, epoch, far future). */
+function toIso(raw: string | undefined): string | undefined {
+  const s = raw?.trim();
+  if (!s) return undefined;
+  const t = new Date(s).getTime();
+  if (isNaN(t)) return undefined;
+  if (t < Date.parse("2000-01-01") || t > Date.now() + 2 * 86_400_000) return undefined;
+  return new Date(t).toISOString();
+}
+
+// <meta> keys news sites use for the publish date, most reliable first.
+const META_DATE_KEYS = [
+  "article:published_time",
+  "article:published",
+  "og:published_time",
+  "datePublished",
+  "parsely-pub-date",
+  "sailthru.date",
+  "dc.date.issued",
+  "dc.date",
+  "publishdate",
+  "publish-date",
+  "pubdate",
+];
+
+/**
+ * Best-effort publish date from the article HTML, for when the RSS feed or
+ * search result carried none (common for `type: site` sources — SearXNG rarely
+ * reports a date). Checks <meta> tags, JSON-LD datePublished, <time datetime>,
+ * then a visible "Published: 27 Nov 2025" line as a last resort.
+ */
+function extractPublishedDate(html: string): string | undefined {
+  const head = html.slice(0, 200_000);
+
+  for (const key of META_DATE_KEYS) {
+    const tag = head.match(
+      new RegExp(`<meta[^>]+(?:property|name|itemprop)=["']${key.replace(/\./g, "\\.")}["'][^>]*>`, "i"),
+    )?.[0];
+    const iso = toIso(tag?.match(/content=["']([^"']+)["']/i)?.[1]);
+    if (iso) return iso;
+  }
+
+  for (const m of head.matchAll(/"datePublished"\s*:\s*"([^"]+)"/gi)) {
+    const iso = toIso(m[1]);
+    if (iso) return iso;
+  }
+
+  for (const m of head.matchAll(/<time[^>]+datetime=["']([^"']+)["']/gi)) {
+    const iso = toIso(m[1]);
+    if (iso) return iso;
+  }
+
+  const visible = html.match(
+    /published\s*:?\s*([0-9]{1,2}\s+[A-Za-z]{3,9}\.?\s+[0-9]{4})(?:\s+at\s+[0-9]{1,2}[:.][0-9]{2})?/i,
+  );
+  return toIso(visible?.[1]);
+}
+
+export interface ArticleResult {
+  text: string;
+  publishedAt?: string;
+}
+
+/** Fetches the article page and returns its lead text plus a publish date when the markup carries one, or null on any failure (blocked, non-HTML, too short to be real content, etc). */
+export async function fetchArticle(url: string): Promise<ArticleResult | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -141,7 +204,7 @@ export async function fetchArticleText(url: string): Promise<string | null> {
     // Recovery failed (novel obfuscation, partial reversal, etc) — better to
     // fall back to the RSS/search snippet than store mirror text.
     if (looksReversed(text)) return null;
-    return text.slice(0, MAX_LENGTH);
+    return { text: text.slice(0, MAX_LENGTH), publishedAt: extractPublishedDate(html) };
   } catch {
     return null;
   } finally {
