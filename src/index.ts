@@ -89,12 +89,39 @@ export default {
     }
 
     if (url.pathname === "/api/news") {
-      const limit = Math.min(Number(url.searchParams.get("limit") ?? 50), 200);
-      const { results } = await env.river_watch_db
-        .prepare(`SELECT * FROM articles ORDER BY collected_at DESC LIMIT ?`)
-        .bind(limit)
-        .all();
-      return Response.json({ articles: results });
+      const perPage = Math.min(Math.max(Number(url.searchParams.get("limit") ?? 50), 1), 100);
+      const page = Math.max(Number(url.searchParams.get("page") ?? 1), 1);
+      const offset = (page - 1) * perPage;
+      const [list, totalRow] = await Promise.all([
+        env.river_watch_db
+          .prepare(`SELECT * FROM articles ORDER BY collected_at DESC LIMIT ? OFFSET ?`)
+          .bind(perPage, offset)
+          .all(),
+        env.river_watch_db.prepare(`SELECT COUNT(*) AS n FROM articles`).first<{ n: number }>(),
+      ]);
+      return Response.json({ articles: list.results, total: totalRow?.n ?? 0, page, perPage });
+    }
+
+    if (url.pathname === "/api/stats") {
+      const [perDay, byTrust, bySource] = await Promise.all([
+        env.river_watch_db
+          .prepare(
+            `SELECT substr(collected_at, 1, 10) AS day, trust, COUNT(*) AS n
+             FROM articles
+             WHERE collected_at >= date('now', '-90 days')
+             GROUP BY day, trust
+             ORDER BY day`,
+          )
+          .all(),
+        env.river_watch_db.prepare(`SELECT trust, COUNT(*) AS n FROM articles GROUP BY trust ORDER BY n DESC`).all(),
+        env.river_watch_db
+          .prepare(
+            `SELECT source_id, source_name, trust, COUNT(*) AS n
+             FROM articles GROUP BY source_id ORDER BY n DESC`,
+          )
+          .all(),
+      ]);
+      return Response.json({ perDay: perDay.results, byTrust: byTrust.results, bySource: bySource.results });
     }
 
     if (url.pathname === "/api/summary/latest") {

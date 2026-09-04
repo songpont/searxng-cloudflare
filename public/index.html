@@ -22,6 +22,18 @@
   h1 { font-size: 1.3rem; font-weight: 700; margin: 0 0 0.25rem; }
   .subtitle { color: #6b7280; font-size: 0.85rem; }
 
+  .tabs { background: #ffffff; border-bottom: 1px solid #e2e5ea; position: sticky; top: 0; z-index: 5; }
+  .tabs .inner { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem; display: flex; gap: 0.2rem; }
+  .tab-btn {
+    background: none; border: none; margin-bottom: -1px;
+    padding: 0.85rem 1rem; font: inherit; font-size: 0.88rem;
+    color: #6b7280; cursor: pointer; border-bottom: 2px solid transparent;
+  }
+  .tab-btn:hover { color: #1f2430; }
+  .tab-btn.active { color: #1a56db; border-bottom-color: #1a56db; font-weight: 600; }
+  .tab-panel[hidden] { display: none; }
+
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 1.8rem 1.5rem 4rem; }
   .layout {
     max-width: 1100px;
     margin: 0 auto;
@@ -41,7 +53,7 @@
     border-radius: 10px;
     padding: 1rem;
     position: sticky;
-    top: 1.5rem;
+    top: 4rem;
   }
   aside h2 { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: #8a91a0; margin: 0 0 0.75rem; }
   .week-item {
@@ -71,6 +83,7 @@
     border-radius: 10px;
     padding: 1.4rem 1.6rem;
   }
+  .card + .card { margin-top: 1.2rem; }
   .card h2 { font-size: 0.95rem; margin: 0 0 0.9rem; color: #1f2430; }
   .card-meta { color: #8a91a0; font-size: 0.78rem; margin-top: 1rem; padding-top: 0.8rem; border-top: 1px solid #eef0f3; }
 
@@ -120,6 +133,41 @@
   .trust-social { background: #eef0f3; color: #5b6472; }
   .trust-web { background: #fdeadb; color: #a15a1a; }
   .empty { color: #8a91a0; font-size: 0.85rem; padding: 1rem; }
+
+  /* news tab */
+  .news-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .news-toolbar .section-title { margin: 0; }
+  #perPageSel { font: inherit; font-size: 0.8rem; padding: 0.35rem 0.5rem; border: 1px solid #d7dbe0; border-radius: 6px; background: #fff; }
+  .pager { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.6rem; margin: 0.9rem 0; }
+  .pager-info { color: #8a91a0; font-size: 0.8rem; }
+  .pager-btns { display: flex; gap: 0.4rem; }
+  .pager-btns button {
+    font: inherit; font-size: 0.8rem; padding: 0.4rem 0.7rem;
+    border: 1px solid #d7dbe0; background: #fff; border-radius: 6px; cursor: pointer; color: #1f2430;
+  }
+  .pager-btns button:hover:not(:disabled) { background: #f0f2f5; }
+  .pager-btns button:disabled { opacity: 0.4; cursor: default; }
+
+  /* stats tab */
+  .stats-row { display: flex; flex-wrap: wrap; gap: 1.6rem; }
+  .stat { display: flex; flex-direction: column; }
+  .stat b { font-size: 1.5rem; color: #1f2430; line-height: 1.2; }
+  .stat span { font-size: 0.75rem; color: #8a91a0; }
+  .chart { width: 100%; height: auto; display: block; overflow: visible; }
+  .chart .grid { stroke: #eef0f3; stroke-width: 1; }
+  .chart .axis { fill: #8a91a0; font-size: 10px; }
+  .chart rect { transition: opacity 0.1s; }
+  .chart rect:hover { opacity: 0.75; }
+  .legend { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 0.8rem; font-size: 0.78rem; color: #5b6472; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 0.35rem; vertical-align: middle; }
+  .hbar-row { display: grid; grid-template-columns: 150px 1fr 44px; align-items: center; gap: 0.7rem; margin: 0.5rem 0; font-size: 0.8rem; }
+  .hbar-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #5b6472; }
+  .hbar-track { background: #f0f2f5; border-radius: 4px; overflow: hidden; height: 16px; }
+  .hbar-fill { height: 100%; border-radius: 4px; min-width: 2px; }
+  .hbar-n { text-align: right; color: #8a91a0; font-size: 0.78rem; }
+  @media (max-width: 560px) {
+    .hbar-row { grid-template-columns: 110px 1fr 34px; }
+  }
 </style>
 </head>
 <body>
@@ -130,29 +178,70 @@
   </div>
 </header>
 
-<div class="layout">
-  <aside>
-    <h2>สรุปรายสัปดาห์</h2>
-    <div id="weekList"><div class="empty">กำลังโหลด...</div></div>
-  </aside>
+<nav class="tabs">
+  <div class="inner">
+    <button class="tab-btn active" data-tab="summary">สรุปรายสัปดาห์</button>
+    <button class="tab-btn" data-tab="news">ข่าวทั้งหมด</button>
+    <button class="tab-btn" data-tab="stats">สถิติ</button>
+  </div>
+</nav>
 
-  <main>
-    <section>
-      <div class="card">
-        <h2 id="summaryTitle">สรุปสถานการณ์รายสัปดาห์</h2>
-        <div class="summary-html" id="summaryBody"><div class="empty">กำลังโหลด...</div></div>
-        <div class="card-meta" id="summaryMeta"></div>
-      </div>
-    </section>
+<div id="tab-summary" class="tab-panel">
+  <div class="layout">
+    <aside>
+      <h2>สรุปรายสัปดาห์</h2>
+      <div id="weekList"><div class="empty">กำลังโหลด...</div></div>
+    </aside>
+    <main>
+      <section>
+        <div class="card">
+          <h2 id="summaryTitle">สรุปสถานการณ์รายสัปดาห์</h2>
+          <div class="summary-html" id="summaryBody"><div class="empty">กำลังโหลด...</div></div>
+          <div class="card-meta" id="summaryMeta"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
 
-    <section>
-      <h2 class="section-title">ข่าวล่าสุดที่เก็บได้</h2>
-      <div id="newsSection"><div class="empty">กำลังโหลด...</div></div>
-    </section>
-  </main>
+<div id="tab-news" class="tab-panel" hidden>
+  <div class="wrap">
+    <div class="news-toolbar">
+      <h2 class="section-title">ข่าวทั้งหมดที่เก็บได้</h2>
+      <label>แสดง
+        <select id="perPageSel">
+          <option value="50">50 / หน้า</option>
+          <option value="100">100 / หน้า</option>
+        </select>
+      </label>
+    </div>
+    <div class="pager" id="pagerTop"></div>
+    <div id="newsList"><div class="empty">กำลังโหลด...</div></div>
+    <div class="pager" id="pagerBottom"></div>
+  </div>
+</div>
+
+<div id="tab-stats" class="tab-panel" hidden>
+  <div class="wrap">
+    <div class="card">
+      <h2>ยอดสะสมแยกตามประเภทแหล่งข่าว</h2>
+      <div class="stats-row" id="trustTotals"><div class="empty">กำลังโหลด...</div></div>
+    </div>
+    <div class="card">
+      <h2>จำนวนข่าวที่ดึงได้ต่อวัน (90 วันล่าสุด)</h2>
+      <div id="dailyChart"><div class="empty">กำลังโหลด...</div></div>
+    </div>
+    <div class="card">
+      <h2>แยกตามแหล่งข่าว</h2>
+      <div id="sourceChart"><div class="empty">กำลังโหลด...</div></div>
+    </div>
+  </div>
 </div>
 
 <script>
+const TRUSTS = ["official", "news", "social", "web"];
+const TRUST_FILL = { official: "#3fae63", news: "#e0b93c", social: "#9aa3b0", web: "#e08a3c" };
+
 function trustLabel(trust) {
   return { official: "ทางการ", news: "สื่อ", social: "โซเชียล", web: "เว็บเปิด · ยังไม่ยืนยัน" }[trust] || trust;
 }
@@ -233,6 +322,8 @@ function markdownToHtml(md) {
   return html;
 }
 
+/* ---------- summary tab ---------- */
+
 let allSummaries = [];
 
 function renderSummary(summary) {
@@ -283,34 +374,182 @@ async function loadSummaries() {
   }
 }
 
-async function loadNews() {
-  const el = document.getElementById("newsSection");
-  try {
-    const res = await fetch("/api/news?limit=40");
-    const data = await res.json();
-    if (!data.articles || data.articles.length === 0) {
-      el.innerHTML = '<div class="empty">ยังไม่มีข่าวที่เก็บได้</div>';
-      return;
-    }
-    el.innerHTML = data.articles.map(a => `
-      <div class="article">
-        <span class="trust-tag trust-${a.trust}">${trustLabel(a.trust)}</span>
-        <a class="title" href="${a.url}" target="_blank" rel="noopener noreferrer">${a.title ?? a.url}</a>
-        <div class="dates">
-          <span><b>วันที่ข่าว:</b> ${formatDate(a.published_at) ?? "ไม่ระบุ"}</span>
-          <span><b>สืบค้นเมื่อ:</b> ${formatDate(a.collected_at) ?? "-"}</span>
-          <span>${a.source_name}</span>
-        </div>
-        <div class="snippet">${a.snippet ?? ""}</div>
+/* ---------- news tab ---------- */
+
+let newsPage = 1;
+let newsPerPage = 50;
+
+function articleCard(a) {
+  return `
+    <div class="article">
+      <span class="trust-tag trust-${a.trust}">${trustLabel(a.trust)}</span>
+      <a class="title" href="${a.url}" target="_blank" rel="noopener noreferrer">${escapeHtml(a.title ?? a.url)}</a>
+      <div class="dates">
+        <span><b>วันที่ข่าว:</b> ${formatDate(a.published_at) ?? "ไม่ระบุ"}</span>
+        <span><b>สืบค้นเมื่อ:</b> ${formatDate(a.collected_at) ?? "-"}</span>
+        <span>${escapeHtml(a.source_name ?? "")}</span>
       </div>
-    `).join("");
+      <div class="snippet">${escapeHtml(a.snippet ?? "")}</div>
+    </div>`;
+}
+
+function renderPager(total, pages) {
+  const from = total === 0 ? 0 : (newsPage - 1) * newsPerPage + 1;
+  const to = Math.min(newsPage * newsPerPage, total);
+  const html = `
+    <div class="pager-info">${from}–${to} จาก ${total} ข่าว · หน้า ${newsPage}/${pages}</div>
+    <div class="pager-btns">
+      <button data-act="first" ${newsPage <= 1 ? "disabled" : ""}>« หน้าแรก</button>
+      <button data-act="prev" ${newsPage <= 1 ? "disabled" : ""}>ก่อนหน้า</button>
+      <button data-act="next" ${newsPage >= pages ? "disabled" : ""}>ถัดไป</button>
+      <button data-act="last" ${newsPage >= pages ? "disabled" : ""}>หน้าสุดท้าย »</button>
+    </div>`;
+  ["pagerTop", "pagerBottom"].forEach(id => {
+    const p = document.getElementById(id);
+    p.innerHTML = html;
+    p.querySelectorAll("button").forEach(b => {
+      b.onclick = () => {
+        const act = b.dataset.act;
+        if (act === "first") newsPage = 1;
+        else if (act === "prev") newsPage = Math.max(1, newsPage - 1);
+        else if (act === "next") newsPage = Math.min(pages, newsPage + 1);
+        else if (act === "last") newsPage = pages;
+        loadNews();
+        document.querySelector(".tabs").scrollIntoView({ behavior: "smooth", block: "start" });
+      };
+    });
+  });
+}
+
+async function loadNews() {
+  const el = document.getElementById("newsList");
+  el.innerHTML = '<div class="empty">กำลังโหลด...</div>';
+  try {
+    const res = await fetch(`/api/news?limit=${newsPerPage}&page=${newsPage}`);
+    const data = await res.json();
+    const arts = data.articles ?? [];
+    const total = data.total ?? arts.length;
+    const pages = Math.max(1, Math.ceil(total / newsPerPage));
+    if (newsPage > pages) { newsPage = pages; return loadNews(); }
+    el.innerHTML = arts.length
+      ? arts.map(articleCard).join("")
+      : '<div class="empty">ยังไม่มีข่าวที่เก็บได้</div>';
+    renderPager(total, pages);
   } catch (err) {
     el.innerHTML = '<div class="empty">โหลดข่าวไม่สำเร็จ</div>';
   }
 }
 
+document.getElementById("perPageSel").addEventListener("change", (e) => {
+  newsPerPage = Number(e.target.value);
+  newsPage = 1;
+  loadNews();
+});
+
+/* ---------- stats tab ---------- */
+
+function renderTrustTotals(byTrust) {
+  const box = document.getElementById("trustTotals");
+  const total = byTrust.reduce((s, r) => s + r.n, 0);
+  const order = { official: 0, news: 1, social: 2, web: 3 };
+  const sorted = [...byTrust].sort((a, b) => (order[a.trust] ?? 9) - (order[b.trust] ?? 9));
+  box.innerHTML =
+    `<div class="stat"><b>${total}</b><span>ทั้งหมด</span></div>` +
+    sorted.map(r => `<div class="stat"><b>${r.n}</b><span>${trustLabel(r.trust)}</span></div>`).join("");
+}
+
+// Stacked vertical bars: one bar per day, segments coloured by trust level.
+function renderDailyChart(perDay) {
+  const box = document.getElementById("dailyChart");
+  if (!perDay.length) { box.innerHTML = '<div class="empty">ยังไม่มีข้อมูล</div>'; return; }
+
+  const byDay = {};
+  perDay.forEach(r => { (byDay[r.day] || (byDay[r.day] = {}))[r.trust] = r.n; });
+  const days = Object.keys(byDay).sort();
+  const totals = days.map(d => TRUSTS.reduce((s, t) => s + (byDay[d][t] || 0), 0));
+  const max = Math.max(1, ...totals);
+
+  const W = 720, H = 260, padL = 34, padR = 8, padT = 12, padB = 44;
+  const cw = W - padL - padR, chh = H - padT - padB;
+  const step = cw / days.length;
+  const bw = Math.min(30, step * 0.72);
+  const ticks = 4;
+
+  let svg = "";
+  for (let k = 0; k <= ticks; k++) {
+    const v = Math.round((max / ticks) * k);
+    const y = padT + chh - (v / max) * chh;
+    svg += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}" class="grid"/>`;
+    svg += `<text x="${padL - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end" class="axis">${v}</text>`;
+  }
+
+  const labelEvery = Math.max(1, Math.ceil(days.length / 14));
+  days.forEach((d, i) => {
+    const x = padL + i * step + (step - bw) / 2;
+    let y = padT + chh;
+    TRUSTS.forEach(t => {
+      const v = byDay[d][t] || 0;
+      if (!v) return;
+      const h = (v / max) * chh;
+      y -= h;
+      svg += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="${TRUST_FILL[t]}"><title>${d} · ${trustLabel(t)}: ${v}</title></rect>`;
+    });
+    if (i % labelEvery === 0) {
+      svg += `<text x="${(x + bw / 2).toFixed(1)}" y="${H - padB + 16}" text-anchor="middle" class="axis">${d.slice(5)}</text>`;
+    }
+  });
+
+  const legend = '<div class="legend">' +
+    TRUSTS.map(t => `<span><i style="background:${TRUST_FILL[t]}"></i>${trustLabel(t)}</span>`).join("") +
+    "</div>";
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="chart" preserveAspectRatio="xMidYMid meet">${svg}</svg>` + legend;
+}
+
+function renderSourceChart(bySource) {
+  const box = document.getElementById("sourceChart");
+  if (!bySource.length) { box.innerHTML = '<div class="empty">ยังไม่มีข้อมูล</div>'; return; }
+  const max = Math.max(1, ...bySource.map(r => r.n));
+  box.innerHTML = bySource.map(r => `
+    <div class="hbar-row">
+      <div class="hbar-label" title="${escapeHtml(r.source_name)}">${escapeHtml(r.source_name)}</div>
+      <div class="hbar-track">
+        <div class="hbar-fill" style="width:${((r.n / max) * 100).toFixed(1)}%;background:${TRUST_FILL[r.trust] || "#9aa3b0"}"></div>
+      </div>
+      <div class="hbar-n">${r.n}</div>
+    </div>`).join("");
+}
+
+async function loadStats() {
+  try {
+    const res = await fetch("/api/stats");
+    const data = await res.json();
+    renderTrustTotals(data.byTrust ?? []);
+    renderDailyChart(data.perDay ?? []);
+    renderSourceChart(data.bySource ?? []);
+  } catch (err) {
+    document.getElementById("dailyChart").innerHTML = '<div class="empty">โหลดสถิติไม่สำเร็จ</div>';
+  }
+}
+
+/* ---------- tabs ---------- */
+
+const loaded = { news: false, stats: false };
+
+function activateTab(name) {
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
+  document.querySelectorAll(".tab-panel").forEach(p => { p.hidden = p.id !== `tab-${name}`; });
+  if (name === "news" && !loaded.news) { loaded.news = true; loadNews(); }
+  if (name === "stats" && !loaded.stats) { loaded.stats = true; loadStats(); }
+  if (location.hash.slice(1) !== name) history.replaceState(null, "", "#" + name);
+}
+
+document.querySelectorAll(".tab-btn").forEach(b => {
+  b.addEventListener("click", () => activateTab(b.dataset.tab));
+});
+
+const initial = (location.hash || "#summary").slice(1);
+activateTab(["summary", "news", "stats"].includes(initial) ? initial : "summary");
 loadSummaries();
-loadNews();
 </script>
 </body>
 </html>
