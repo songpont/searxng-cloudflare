@@ -83,6 +83,7 @@ flowchart LR
     subgraph R1["รอบ 1 — กวาดตามแหล่งที่กำหนด"]
         RSS["type: rss<br/>ดึงฟีด → กรองด้วย keyword"]
         SITE["type: site<br/>ค้น SearXNG ด้วย 'keyword site:domain'"]
+        PAGE["type: page<br/>โหลด URL ตรงๆ → เก็บลิงก์บนหน้า"]
     end
 
     R1 --> ENRICH["เสริมเนื้อหาเต็ม<br/>fetchArticleText()<br/>ดึงหน้าบทความ → สกัดย่อหน้านำ"]
@@ -194,6 +195,16 @@ npm run deploy
       "trust": "official",
       "enabled": true,
       "domain": "onwr.go.th"
+    },
+    {
+      "id": "some-listing",
+      "name": "หน้ารวมข่าวสิ่งแวดล้อม",
+      "type": "page",             // โหลดหน้านี้ตรงๆ เก็บลิงก์บนหน้าเป็นรายการข่าว
+      "trust": "news",
+      "enabled": true,
+      "url": "https://example.gov.th/news/environment",
+      "include": "/news/",        // (ออปชัน) เอาเฉพาะลิงก์ที่ URL มีข้อความนี้
+      "matchKeywords": true       // (ออปชัน) กรองด้วย keywords อีกชั้นหลังดึงเนื้อหา
     }
   ]
 }
@@ -201,11 +212,16 @@ npm run deploy
 
 | ฟิลด์ | จำเป็นเมื่อ | หมายเหตุ |
 |-------|-----------|----------|
-| `type` | เสมอ | `"rss"` หรือ `"site"` |
-| `url` | `type: rss` | ลิงก์ RSS/Atom feed จริง |
-| `domain` | `type: site` | เช่น `bangkokpost.com` หรือแม้แต่ `facebook.com/ชื่อเพจ` |
+| `type` | เสมอ | `"rss"` \| `"site"` \| `"page"` |
+| `url` | `type: rss` / `page` | RSS feed จริง / URL ของหน้ารายการข่าว |
+| `domain` | `type: site` | เช่น `bangkokpost.com` หรือ `bangkokpost.com/thailand` หรือ `facebook.com/ชื่อเพจ` |
+| `include` | — (`type: page`) | เก็บเฉพาะลิงก์ที่ URL มี substring นี้ เช่น `"/news/"` |
+| `crossHost` | — (`type: page`) | `true` = ตามลิงก์ไปโดเมนอื่นด้วย (ค่าเริ่มต้น: host เดียวกับหน้าเท่านั้น) |
+| `matchKeywords` | — (`type: page`) | `true` = ต้องตรง keywords (เช็คทั้งข้อความลิงก์และเนื้อข่าวที่ดึงมา) |
 | `trust` | เสมอ | `official` \| `news` \| `social` |
 | `enabled` | — | ตั้ง `false` เพื่อปิดชั่วคราวโดยไม่ต้องลบ |
+
+> **`type: page` เหมาะกับหน้าที่ server render มา** (เว็บหน่วยงานส่วนใหญ่) — ถ้าหน้าเป็น JS render อย่างหน้าแท็กของ Bangkok Post ตัว HTML จะมีแต่ลิงก์ nav ทั่วไป ให้ใช้ `type: site` แทน หรือเปิด `matchKeywords: true` ให้กรองด้วยเนื้อข่าวจริงอีกชั้น
 
 ---
 

@@ -1,18 +1,24 @@
 import type { Env } from "../env";
 import { searchAutomated } from "../search";
 import { parseFeed } from "./rss";
-import { fetchArticle } from "./article-content";
+import { fetchArticle, fetchHtml } from "./article-content";
 import sourcesFile from "../../config/sources.json";
 
 interface Source {
   id: string;
   name: string;
-  type: "rss" | "site";
+  type: "rss" | "site" | "page";
   trust: "official" | "news" | "social";
   enabled?: boolean;
   url?: string;
   domain?: string;
   note?: string;
+  /** type: page — only follow links whose absolute URL contains this substring (e.g. "/news/"). */
+  include?: string;
+  /** type: page — follow links to other hosts too (default: same host as the page only). */
+  crossHost?: boolean;
+  /** type: page — require the link text to match one of the global keywords (default: take every link). */
+  matchKeywords?: boolean;
 }
 
 interface SourcesConfig {
@@ -200,6 +206,86 @@ async function collectFromSite(env: Env, source: Source): Promise<NewArticle[]> 
   return results.flat();
 }
 
+const PAGE_LINK_LIMIT = 20;
+
+/** Pulls <a href> links (absolute URL + visible text) out of a listing page's HTML. */
+function extractLinks(html: string, base: URL): { url: string; text: string }[] {
+  const out: { url: string; text: string }[] = [];
+  const seen = new Set<string>();
+  for (const m of html.matchAll(/<a\s+[^>]*href=["']([^"'\s>]+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+    const raw = m[1].trim();
+    if (!raw || /^(?:javascript:|mailto:|tel:|#)/i.test(raw)) continue;
+    let url: string;
+    try {
+      const u = new URL(raw, base);
+      u.hash = "";
+      url = u.toString();
+    } catch {
+      continue;
+    }
+    if (seen.has(url)) continue;
+    seen.add(url);
+    const text = m[2].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    out.push({ url, text });
+  }
+  return out;
+}
+
+/**
+ * Reads a specific page (a tag/section/listing page that has no RSS feed) and
+ * treats the article links on it as the candidate set — no search engine in the
+ * loop. Enrichment then pulls each article's own text and date.
+ *
+ * Best for server-rendered listings. A JS-rendered page ships only a shell, so
+ * the links found are generic nav/"popular" items rather than the real list —
+ * set `matchKeywords: true` there so the fetched article text still gets a
+ * relevance check, or use a `type: site` source instead.
+ */
+async function collectFromPage(env: Env, source: Source): Promise<NewArticle[]> {
+  if (!source.url) return [];
+  try {
+    const html = await fetchHtml(source.url);
+    if (!html) return [];
+    const base = new URL(source.url);
+
+    const candidates: NewArticle[] = [];
+    for (const link of extractLinks(html, base)) {
+      if (candidates.length >= PAGE_LINK_LIMIT) break;
+      if (link.url === source.url) continue;
+      if (!source.crossHost && new URL(link.url).host !== base.host) continue;
+      if (source.include && !link.url.includes(source.include)) continue;
+      const keyword = matchesKeyword(link.text, config.keywords);
+      // Drop only links whose (present) text clearly isn't on topic; links with
+      // no visible text are kept for the post-fetch check below.
+      if (source.matchKeywords && link.text && !keyword) continue;
+      candidates.push({
+        url: link.url,
+        title: link.text || link.url,
+        snippet: "",
+        sourceId: source.id,
+        sourceName: source.name,
+        trust: source.trust,
+        keyword,
+      });
+    }
+
+    const enriched = await enrichWithFullText(candidates);
+    const relevant = source.matchKeywords
+      ? enriched.filter((a) => matchesKeyword(`${a.title} ${a.snippet}`, config.keywords))
+      : enriched;
+
+    const inserted: NewArticle[] = [];
+    for (const article of relevant) {
+      const added = await insertArticle(env, article);
+      if (added) inserted.push(added);
+    }
+    return inserted;
+  } catch (err) {
+    console.error(`page collect failed for ${source.id}`, err);
+    return [];
+  }
+}
+
 const FOLLOWUP_SYSTEM_PROMPT = `คุณคือผู้ช่วยนักข่าวสืบสวนด้านสิ่งแวดล้อม จากหัวข้อข่าวและบทคัดย่อที่ให้มา
 ให้ระบุคำค้นเจาะจงเพิ่มเติม 3-5 คำ เพื่อขุดข้อมูลเชิงลึกต่อในเว็บเปิด เช่น ชื่อบริษัท/เหมืองที่ถูกพาดพิง
 ชื่อหน่วยงานที่รับผิดชอบ ชื่อสถานที่/หมู่บ้านที่ได้รับผลกระทบ หรือชื่อบุคคล/นักเคลื่อนไหวที่เกี่ยวข้อง
@@ -287,7 +373,11 @@ export async function runDailyCollection(env: Env): Promise<{
 }> {
   const activeSources = config.sources.filter((s) => s.enabled !== false);
   const roundResults = await Promise.all(
-    activeSources.map((source) => (source.type === "rss" ? collectFromRss(env, source) : collectFromSite(env, source))),
+    activeSources.map((source) => {
+      if (source.type === "rss") return collectFromRss(env, source);
+      if (source.type === "page") return collectFromPage(env, source);
+      return collectFromSite(env, source);
+    }),
   );
   const broadArticles = roundResults.flat();
 

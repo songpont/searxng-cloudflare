@@ -175,6 +175,25 @@ function extractPublishedDate(html: string): string | undefined {
   return toIso(visible?.[1]);
 }
 
+const USER_AGENT =
+  "Mozilla/5.0 (compatible; RiverWatchBot/1.0; research aggregator; +https://cloudflare-searxng.songpont.workers.dev)";
+
+/** Fetches a URL and returns its decoded HTML, or null on any failure (non-2xx, non-HTML, timeout, unreadable body). */
+export async function fetchHtml(url: string): Promise<string | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { signal: controller.signal, headers: { "user-agent": USER_AGENT } });
+    if (!res.ok) return null;
+    if (!(res.headers.get("content-type") ?? "").includes("html")) return null;
+    return (await readBody(res)) || null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export interface ArticleResult {
   text: string;
   publishedAt?: string;
@@ -182,32 +201,13 @@ export interface ArticleResult {
 
 /** Fetches the article page and returns its lead text plus a publish date when the markup carries one, or null on any failure (blocked, non-HTML, too short to be real content, etc). */
 export async function fetchArticle(url: string): Promise<ArticleResult | null> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        "user-agent":
-          "Mozilla/5.0 (compatible; RiverWatchBot/1.0; research aggregator; +https://cloudflare-searxng.songpont.workers.dev)",
-      },
-    });
-    if (!res.ok) return null;
-    const contentType = res.headers.get("content-type") ?? "";
-    if (!contentType.includes("html")) return null;
+  const html = await fetchHtml(url);
+  if (!html) return null;
 
-    const html = await readBody(res);
-    if (!html) return null;
-
-    const text = extractArticleText(html);
-    if (text.length < MIN_LENGTH) return null;
-    // Recovery failed (novel obfuscation, partial reversal, etc) — better to
-    // fall back to the RSS/search snippet than store mirror text.
-    if (looksReversed(text)) return null;
-    return { text: text.slice(0, MAX_LENGTH), publishedAt: extractPublishedDate(html) };
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timeout);
-  }
+  const text = extractArticleText(html);
+  if (text.length < MIN_LENGTH) return null;
+  // Recovery failed (novel obfuscation, partial reversal, etc) — better to
+  // fall back to the RSS/search snippet than store mirror text.
+  if (looksReversed(text)) return null;
+  return { text: text.slice(0, MAX_LENGTH), publishedAt: extractPublishedDate(html) };
 }
