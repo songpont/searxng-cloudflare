@@ -46,8 +46,31 @@ function matchesKeyword(text: string, keywords: string[]): string | undefined {
  */
 function normalizeDate(raw?: string): string | undefined {
   if (!raw) return undefined;
-  const d = new Date(raw);
-  return isNaN(d.getTime()) ? undefined : d.toISOString();
+  const t = new Date(raw).getTime();
+  if (isNaN(t) || t < Date.parse("2000-01-01") || t > Date.now() + 2 * 86_400_000) return undefined;
+  return new Date(t).toISOString();
+}
+
+/**
+ * SearXNG/Google frequently put the page date at the front of a result's
+ * content string instead of in the publishedDate field ("Nov 27, 2025 · ...",
+ * "27 Nov 2025 ...", "2025. 11. 25. · ..."). Pull that leading token when the
+ * structured field is missing.
+ */
+function parseSnippetDate(content?: string): string | undefined {
+  const s = content?.trimStart();
+  if (!s) return undefined;
+
+  const monthDayYear = s.match(/^([A-Z][a-z]{2,8}\.?\s+\d{1,2},\s+\d{4})\b/);
+  if (monthDayYear) return normalizeDate(monthDayYear[1]);
+
+  const dayMonthYear = s.match(/^(\d{1,2}\s+[A-Z][a-z]{2,8}\.?\s+\d{4})\b/);
+  if (dayMonthYear) return normalizeDate(dayMonthYear[1]);
+
+  const ymd = s.match(/^(\d{4})[.\-/]\s*(\d{1,2})[.\-/]\s*(\d{1,2})\b/);
+  if (ymd) return normalizeDate(`${ymd[1]}-${ymd[2].padStart(2, "0")}-${ymd[3].padStart(2, "0")}`);
+
+  return undefined;
 }
 
 function urlMatchesDomain(url: string, domainSpec: string): boolean {
@@ -155,7 +178,7 @@ async function collectFromSiteKeyword(env: Env, source: Source, keyword: string)
       sourceName: source.name,
       trust: source.trust,
       keyword,
-      publishedAt: normalizeDate(r.publishedDate),
+      publishedAt: normalizeDate(r.publishedDate) ?? parseSnippetDate(r.content),
     }));
 
     const enriched = await enrichWithFullText(candidates);
@@ -226,7 +249,7 @@ async function collectFollowUpQuery(env: Env, query: string): Promise<NewArticle
       sourceName: "ค้นเจาะลึกโดย AI (เว็บเปิด)",
       trust: "web",
       keyword: query,
-      publishedAt: normalizeDate(r.publishedDate),
+      publishedAt: normalizeDate(r.publishedDate) ?? parseSnippetDate(r.content),
     }));
 
     const enriched = await enrichWithFullText(candidates);
