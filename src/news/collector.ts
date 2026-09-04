@@ -1,5 +1,5 @@
 import type { Env } from "../env";
-import { searchAutomated } from "../search";
+import { searchAutomated, type TimeRange } from "../search";
 import { parseFeed } from "./rss";
 import { fetchArticle, fetchHtml } from "./article-content";
 import sourcesFile from "../../config/sources.json";
@@ -19,11 +19,15 @@ interface Source {
   crossHost?: boolean;
   /** type: page — require the link text to match one of the global keywords (default: take every link). */
   matchKeywords?: boolean;
+  /** Drop articles whose known publish date is older than this many days. Overrides the top-level maxAgeDays. */
+  maxAgeDays?: number;
 }
 
 interface SourcesConfig {
   keywords: string[];
   sources: Source[];
+  /** Global recency cutoff (days) applied to every source; a source's own maxAgeDays wins. Omit or 0 = no cutoff. */
+  maxAgeDays?: number;
 }
 
 const config = sourcesFile as unknown as SourcesConfig;
@@ -42,6 +46,28 @@ interface NewArticle {
 function matchesKeyword(text: string, keywords: string[]): string | undefined {
   const lower = text.toLowerCase();
   return keywords.find((k) => lower.includes(k.toLowerCase()));
+}
+
+/** The source's own cutoff, else the global one. */
+function maxAgeDaysFor(source?: Source): number | undefined {
+  const days = source?.maxAgeDays ?? config.maxAgeDays;
+  return days && days > 0 ? days : undefined;
+}
+
+/** SearXNG has no from/to filter, only these buckets — pick the tightest that still covers the cutoff. */
+function maxAgeToTimeRange(days?: number): TimeRange | undefined {
+  if (!days) return undefined;
+  if (days <= 1) return "day";
+  if (days <= 7) return "week";
+  if (days <= 31) return "month";
+  return "year";
+}
+
+/** Keep articles with no known date (can't prove they're stale) and those newer than the cutoff. */
+function withinMaxAge(publishedAt: string | undefined, days?: number): boolean {
+  if (!days || !publishedAt) return true;
+  const t = Date.parse(publishedAt);
+  return isNaN(t) || t >= Date.now() - days * 86_400_000;
 }
 
 /**
@@ -133,6 +159,17 @@ async function insertArticle(env: Env, article: NewArticle): Promise<NewArticle 
   return (result.meta.changes ?? 0) > 0 ? article : null;
 }
 
+/** Drops anything past the recency cutoff, then inserts the rest; returns those actually stored. */
+async function persist(env: Env, articles: NewArticle[], maxAgeDays?: number): Promise<NewArticle[]> {
+  const inserted: NewArticle[] = [];
+  for (const article of articles) {
+    if (!withinMaxAge(article.publishedAt, maxAgeDays)) continue;
+    const added = await insertArticle(env, article);
+    if (added) inserted.push(added);
+  }
+  return inserted;
+}
+
 async function collectFromRss(env: Env, source: Source): Promise<NewArticle[]> {
   if (!source.url) return [];
   try {
@@ -157,12 +194,7 @@ async function collectFromRss(env: Env, source: Source): Promise<NewArticle[]> {
     }
 
     const enriched = await enrichWithFullText(candidates);
-    const inserted: NewArticle[] = [];
-    for (const article of enriched) {
-      const added = await insertArticle(env, article);
-      if (added) inserted.push(added);
-    }
-    return inserted;
+    return persist(env, enriched, maxAgeDaysFor(source));
   } catch (err) {
     console.error(`rss collect failed for ${source.id}`, err);
     return [];
@@ -171,7 +203,13 @@ async function collectFromRss(env: Env, source: Source): Promise<NewArticle[]> {
 
 async function collectFromSiteKeyword(env: Env, source: Source, keyword: string): Promise<NewArticle[]> {
   try {
-    const res = await searchAutomated(env, `${keyword} site:${source.domain}`, ["google"]);
+    const maxAge = maxAgeDaysFor(source);
+    const res = await searchAutomated(
+      env,
+      `${keyword} site:${source.domain}`,
+      ["google"],
+      maxAgeToTimeRange(maxAge),
+    );
     const data = (await res.json()) as {
       results?: { url: string; title: string; content?: string; publishedDate?: string }[];
     };
@@ -188,12 +226,7 @@ async function collectFromSiteKeyword(env: Env, source: Source, keyword: string)
     }));
 
     const enriched = await enrichWithFullText(candidates);
-    const inserted: NewArticle[] = [];
-    for (const article of enriched) {
-      const added = await insertArticle(env, article);
-      if (added) inserted.push(added);
-    }
-    return inserted;
+    return persist(env, enriched, maxAge);
   } catch (err) {
     console.error(`site collect failed for ${source.id}/${keyword}`, err);
     return [];
@@ -274,12 +307,7 @@ async function collectFromPage(env: Env, source: Source): Promise<NewArticle[]> 
       ? enriched.filter((a) => matchesKeyword(`${a.title} ${a.snippet}`, config.keywords))
       : enriched;
 
-    const inserted: NewArticle[] = [];
-    for (const article of relevant) {
-      const added = await insertArticle(env, article);
-      if (added) inserted.push(added);
-    }
-    return inserted;
+    return persist(env, relevant, maxAgeDaysFor(source));
   } catch (err) {
     console.error(`page collect failed for ${source.id}`, err);
     return [];
@@ -323,7 +351,8 @@ async function extractFollowUpQueries(env: Env, seedArticles: NewArticle[]): Pro
 
 async function collectFollowUpQuery(env: Env, query: string): Promise<NewArticle[]> {
   try {
-    const res = await searchAutomated(env, query);
+    const maxAge = maxAgeDaysFor();
+    const res = await searchAutomated(env, query, [], maxAgeToTimeRange(maxAge));
     const data = (await res.json()) as {
       results?: { url: string; title: string; content?: string; publishedDate?: string }[];
     };
@@ -339,12 +368,7 @@ async function collectFollowUpQuery(env: Env, query: string): Promise<NewArticle
     }));
 
     const enriched = await enrichWithFullText(candidates);
-    const inserted: NewArticle[] = [];
-    for (const article of enriched) {
-      const added = await insertArticle(env, article);
-      if (added) inserted.push(added);
-    }
-    return inserted;
+    return persist(env, enriched, maxAge);
   } catch (err) {
     console.error(`followup collect failed for "${query}"`, err);
     return [];

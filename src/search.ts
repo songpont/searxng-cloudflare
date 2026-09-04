@@ -70,7 +70,10 @@ export async function patchConfig(env: Env, patch: Partial<SearchConfig>): Promi
   return res.json();
 }
 
-function buildSearchUrl(q: string, config: SearchConfig): string {
+/** SearXNG only offers these coarse buckets — there is no arbitrary from/to date filter. */
+export type TimeRange = "day" | "week" | "month" | "year";
+
+function buildSearchUrl(q: string, config: SearchConfig, timeRange?: TimeRange): string {
   const params = new URLSearchParams();
   params.set("q", q);
   params.set("format", "json");
@@ -78,6 +81,7 @@ function buildSearchUrl(q: string, config: SearchConfig): string {
   params.set("safesearch", String(config.safeSearch));
   if (config.categories.length) params.set("categories", config.categories.join(","));
   if (config.engines.length) params.set("engines", config.engines.join(","));
+  if (timeRange) params.set("time_range", timeRange);
   return `http://searxng/search?${params.toString()}`;
 }
 
@@ -129,7 +133,12 @@ export async function runSearch(env: Env, q: string): Promise<Response> {
   return searchContainers(env, buildSearchUrl(q, config));
 }
 
-/** Used by the news collector only — fixed defaults regardless of the admin's stored config, with an optional engines override (e.g. "google" so `site:` is actually honored). */
-export async function searchAutomated(env: Env, q: string, engines: string[] = []): Promise<Response> {
-  return searchContainers(env, buildSearchUrl(q, { ...AUTOMATION_DEFAULTS, engines }));
+/** Used by the news collector only — fixed defaults regardless of the admin's stored config, with an optional engines override (e.g. "google" so `site:` is actually honored) and an optional SearXNG time_range. */
+export async function searchAutomated(
+  env: Env,
+  q: string,
+  engines: string[] = [],
+  timeRange?: TimeRange,
+): Promise<Response> {
+  return searchContainers(env, buildSearchUrl(q, { ...AUTOMATION_DEFAULTS, engines }, timeRange));
 }
