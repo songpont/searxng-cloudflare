@@ -215,8 +215,9 @@ npm run deploy
 
 | Method | Path | คำอธิบาย |
 |--------|------|----------|
-| `GET` | `/` | แดชบอร์ด (static) |
-| `GET` | `/api/news?limit=40` | ข่าวที่เก็บได้ ล่าสุดก่อน |
+| `GET` | `/` | แดชบอร์ด (static) — 3 แท็บ: สรุปรายสัปดาห์ / ข่าวทั้งหมด / สถิติ |
+| `GET` | `/api/news?limit=50&page=1` | ข่าวที่เก็บได้ ล่าสุดก่อน · `limit` = ต่อหน้า (1–100), คืน `total` มาด้วย |
+| `GET` | `/api/stats` | สถิติรวม: `perDay` (ต่อวัน แยกตาม trust), `byTrust`, `bySource` |
 | `GET` | `/api/summary/latest` | รายงานรายสัปดาห์ล่าสุด |
 | `GET` | `/api/summaries?limit=26` | รายการรายงานย้อนหลัง |
 | `GET` | 🔒 `/api/search?q=...` | ค้นผ่าน SearXNG (ใช้ config ของผู้ดูแล) |
