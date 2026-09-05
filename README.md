@@ -61,14 +61,15 @@ flowchart TD
     CRON["Cron Triggers"] -->|"รายวัน 03:00 ICT"| W
     CRON -->|"รายสัปดาห์ อังคาร 03:00 ICT"| W
 
-    W -->|"ดึง RSS / ค้น site:"| EXT["แหล่งข่าวภายนอก<br/>(Bangkok Post, MRC, ...)"]
+    W -->|"ดึง RSS / เก็บลิงก์หน้า"| EXT["แหล่งข่าวภายนอก<br/>(Bangkok Post, MRC, ...)"]
+    W -->|"ค้น type: site + followup"| TAVILY["Tavily Search API"]
     W -->|"สกัดคำค้น + สรุปข่าว"| LLM["DeepSeek API"]
 ```
 
 **องค์ประกอบหลัก**
 
 - **Worker** — เราเตอร์ REST เดียว จัดการทั้ง API สาธารณะ, API ผู้ดูแล (ต้องมี `Authorization: Bearer <ADMIN_TOKEN>`) และเสิร์ฟไฟล์ static
-- **SearxngContainer** — คลาส [`Container`](https://developers.cloudflare.com/containers/) รัน image `searxng/searxng` สอง instance (`primary`, `secondary`) นอน (`sleepAfter`) หลังไม่มีทราฟฟิก 5 นาที การมีสองตัวช่วยได้จริงเพราะแต่ละ process จำสถานะ engine-suspension แยกกัน — ถ้า Google ถูกแบนใน primary ก็ fail over ไป secondary ได้
+- **SearxngContainer** — คลาส [`Container`](https://developers.cloudflare.com/containers/) รัน image `searxng/searxng` สอง instance (`primary`, `secondary`) นอน (`sleepAfter`) หลังไม่มีทราฟฟิก 5 นาที การมีสองตัวช่วยได้จริงเพราะแต่ละ process จำสถานะ engine-suspension แยกกัน — ถ้า Google ถูกแบนใน primary ก็ fail over ไป secondary ได้ **ใช้กับ `/api/search`/`/api/chat` (ค้นหาแบบ manual) เท่านั้น** — news pipeline (`type: site` + AI-followup) ค้นผ่าน **Tavily** แทน (ดูเหตุผลใน [`src/news/tavily.ts`](src/news/tavily.ts))
 - **ConfigStore** — Durable Object เก็บ config การค้นหาที่ผู้ดูแลปรับไว้ (แยกจาก config ของ automation ที่ล็อกค่าไว้ตายตัว)
 - **D1 `river-watch-db`** — ตาราง `articles` และ `weekly_summaries` (สคีมาใน [`migrations/0001_init.sql`](migrations/0001_init.sql))
 
@@ -82,7 +83,7 @@ flowchart LR
 
     subgraph R1["รอบ 1 — กวาดตามแหล่งที่กำหนด"]
         RSS["type: rss<br/>ดึงฟีด → กรองด้วย keyword"]
-        SITE["type: site<br/>ค้น SearXNG ด้วย 'keyword site:domain'"]
+        SITE["type: site<br/>ค้น Tavily 1 query/keyword<br/>ครอบทุกโดเมนพร้อมกัน"]
         PAGE["type: page<br/>โหลด URL ตรงๆ → เก็บลิงก์บนหน้า"]
     end
 
@@ -142,7 +143,7 @@ flowchart LR
 
 ## ติดตั้งและ deploy
 
-**สิ่งที่ต้องมี:** Node.js 18+, บัญชี Cloudflare (แผนที่รองรับ Containers), Docker (สำหรับ build image ตอน deploy), API key ของ DeepSeek
+**สิ่งที่ต้องมี:** Node.js 18+, บัญชี Cloudflare (แผนที่รองรับ Containers), Docker (สำหรับ build image ตอน deploy), API key ของ DeepSeek และ Tavily
 
 ```bash
 # 1. ติดตั้ง dependencies
@@ -155,6 +156,7 @@ npx wrangler d1 execute river-watch-db --remote --file migrations/0001_init.sql
 # 3. ตั้ง secrets (ทำครั้งเดียว)
 npx wrangler secret put DEEPSEEK_API_KEY
 npx wrangler secret put ADMIN_TOKEN     # openssl rand -hex 32
+npx wrangler secret put TAVILY_API_KEY  # จาก tavily.com — ใช้เก็บข่าว type: site + AI-followup
 
 # 4. ใส่ secret_key ของตัวเองใน searxng/settings.yml
 #    openssl rand -hex 32
@@ -165,6 +167,7 @@ npm run deploy
 
 > `DEEPSEEK_MODEL` ตั้งไว้ใน `wrangler.jsonc` (`vars`) ค่าเริ่มต้น `deepseek-chat`
 > ถ้าไม่ตั้ง `DEEPSEEK_API_KEY` ระบบยังเก็บข่าวรอบ 1 ได้ แต่รอบ 2 (AI) และการสรุปจะถูกข้าม
+> ถ้าไม่ตั้ง `TAVILY_API_KEY` source แบบ `type: site` และรอบ 2 (AI-followup) จะไม่คืนผลอะไรเลย (เก็บได้แค่ `type: rss` / `type: page`) — Free tier ของ Tavily ให้ 1,000 credit/เดือน ดูการประเมินการใช้เครดิตในหัวข้อถัดไป
 
 ---
 
@@ -192,7 +195,7 @@ npm run deploy
     {
       "id": "onwr",
       "name": "สำนักงานทรัพยากรน้ำแห่งชาติ",
-      "type": "site",             // ค้นผ่าน SearXNG ด้วย 'keyword site:domain'
+      "type": "site",             // ค้นผ่าน Tavily — โดเมนนี้ถูกรวมเข้า query เดียวกับ site อื่นๆ ต่อ keyword
       "trust": "official",
       "enabled": true,
       "domain": "onwr.go.th"
@@ -225,14 +228,20 @@ npm run deploy
 
 > **`type: page` เหมาะกับหน้าที่ server render มา** (เว็บหน่วยงานส่วนใหญ่) — ถ้าหน้าเป็น JS render อย่างหน้าแท็กของ Bangkok Post ตัว HTML จะมีแต่ลิงก์ nav ทั่วไป ให้ใช้ `type: site` แทน หรือเปิด `matchKeywords: true` ให้กรองด้วยเนื้อข่าวจริงอีกชั้น
 
+### การค้นแบบ `type: site` — รวม query แทนที่จะยิงแยกทีละแหล่ง
+
+`runDailyCollection` ยิง Tavily **1 query ต่อ keyword** โดยใส่ `include_domains` ครอบทุก `type: site` ที่ `enabled` พร้อมกัน (ไม่ใช่ 1 query ต่อ source ต่อ keyword แบบเดิม) แล้วจับคู่ผลลัพธ์แต่ละอันกลับเข้า source ที่ domain ตรงกัน (ดู `collectFromTavilySites` ใน [`collector.ts`](src/news/collector.ts))
+
+เหตุผล: Tavily คิดเครดิตแบบ **flat 1 credit ต่อ request** ไม่ว่าจะใส่กี่โดเมนใน `include_domains` — ยิงรวมจึงถูกกว่ายิงแยกตรง ๆ ตามจำนวน source (เช่น 3 sources × 8 keywords = 24 query/วัน แบบแยก เหลือแค่ 8 query/วัน แบบรวม) ยิ่งมีหลาย collection ในอนาคตยิ่งคุ้ม
+
 ### การกรองช่วงเวลา
 
 `maxAgeDays` ทำงาน 2 ชั้น:
 
-1. **ต้นทาง** — แปลงเป็น SearXNG `time_range` (`≤1` วัน→`day`, `≤7`→`week`, `≤31`→`month`, มากกว่านั้น→`year`) ส่งไปกับการค้น `type: site` และ AI-followup เพื่อให้ผลลัพธ์เอนไปทางข่าวใหม่ตั้งแต่แรก
-2. **ปลายทาง** — หลังดึงเนื้อหา+วันที่ของแต่ละข่าวแล้ว ตัดรายการที่ `published_at` เก่ากว่า cutoff ทิ้งก่อนบันทึก (ข่าวที่หาวันที่ไม่ได้ = เก็บไว้ ไม่ตัด)
+1. **ต้นทาง** — แปลงเป็น Tavily `time_range` (`≤1` วัน→`day`, `≤7`→`week`, `≤31`→`month`, มากกว่านั้น→`year`) ส่งไปกับการค้น `type: site` และ AI-followup เพื่อให้ผลลัพธ์เอนไปทางข่าวใหม่ตั้งแต่แรก — เมื่อ query รวมหลาย source เข้าด้วยกัน ใช้ค่า `maxAgeDays` **กว้างสุด** ในกลุ่มนั้น (ถ้ามี source ไหนไม่จำกัดอายุเลย ก็ไม่ส่ง `time_range` ไปเลย)
+2. **ปลายทาง** — หลังดึงเนื้อหา+วันที่ของแต่ละข่าวแล้ว ตัดรายการที่ `published_at` เก่ากว่า cutoff **ของ source นั้นๆ** ทิ้งก่อนบันทึก (ข่าวที่หาวันที่ไม่ได้ = เก็บไว้ ไม่ตัด)
 
-> SearXNG (และ engine ต้นทาง) **ไม่มี** ตัวกรองช่วงวันที่แบบ from–to มีแค่ 4 ระดับข้างต้น การกรองแบบเป๊ะทำที่ชั้นปลายทางด้วย `published_at` ในฐานข้อมูลของเราเอง
+> Tavily **ไม่มี** ตัวกรองช่วงวันที่แบบ from–to สำหรับ query รวมหลายโดเมนแบบนี้ มีแค่ 4 ระดับข้างต้น การกรองแบบเป๊ะต่อ source ทำที่ชั้นปลายทางด้วย `published_at` ในฐานข้อมูลของเราเองแทน
 
 ---
 

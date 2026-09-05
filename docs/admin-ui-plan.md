@@ -244,4 +244,5 @@ CREATE INDEX idx_summaries_collection ON weekly_summaries(collection_id, created
 - `require_date` ✔
 - เปลี่ยน `onwr` เป็น `type: page` ชี้ `?page_id=1070` + `include=?p=` — ทำตอน seed หรือแก้ผ่าน UI หลัง Phase 3
 - `type: page` (โหลด URL ตรง ๆ เก็บลิงก์) — **ชิปไปแล้ว** commit `59c3a02`
-- `maxAgeDays` + `time_range` → SearXNG — **ชิปไปแล้ว** commit `88aa80b`
+- `maxAgeDays` + `time_range` → **ชิปไปแล้ว** commit `88aa80b` (ตอนนั้นยังพึ่ง SearXNG)
+- **`type: site` เปลี่ยนไปใช้ Tavily แทน SearXNG** (ยิง 1 query/keyword ครอบทุกโดเมน แทนที่จะยิงแยกทีละ source — Tavily คิดเครดิต flat ต่อ request) — ต้องพกแนวคิดนี้ไปตอนย้าย source model เข้า D1 ใน Phase 1: field `include_domains` ของ query รวมยังต้อง derive จาก domain ของทุก source ในกลุ่มเดียวกันที่ query ครั้งเดียวกัน ไม่ใช่ query ต่อ source เหมือน schema ฉบับร่างใน §3 (แก้ implementation ตอนลงมือ ไม่ต้องแก้ schema) — SearxngContainer/ConfigStore ยังอยู่ ใช้กับ `/api/search`/`/api/chat` (manual search proxy) เท่านั้น ไม่เกี่ยวกับ news pipeline อีกต่อไป

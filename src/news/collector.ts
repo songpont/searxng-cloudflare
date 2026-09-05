@@ -1,5 +1,5 @@
 import type { Env } from "../env";
-import { searchAutomated, type TimeRange } from "../search";
+import { searchTavily, type TavilyTimeRange } from "./tavily";
 import { parseFeed } from "./rss";
 import { fetchArticle, fetchHtml } from "./article-content";
 import sourcesFile from "../../config/sources.json";
@@ -54,8 +54,8 @@ function maxAgeDaysFor(source?: Source): number | undefined {
   return days && days > 0 ? days : undefined;
 }
 
-/** SearXNG has no from/to filter, only these buckets — pick the tightest that still covers the cutoff. */
-function maxAgeToTimeRange(days?: number): TimeRange | undefined {
+/** Tavily has no from/to filter, only these buckets — pick the tightest that still covers the cutoff. */
+function maxAgeToTimeRange(days?: number): TavilyTimeRange | undefined {
   if (!days) return undefined;
   if (days <= 1) return "day";
   if (days <= 7) return "week";
@@ -201,20 +201,50 @@ async function collectFromRss(env: Env, source: Source): Promise<NewArticle[]> {
   }
 }
 
-async function collectFromSiteKeyword(env: Env, source: Source, keyword: string): Promise<NewArticle[]> {
+/** Bare hostname for Tavily's include_domains, which filters by host only (no path prefix). */
+function hostOf(domainSpec: string): string {
   try {
-    const maxAge = maxAgeDaysFor(source);
-    const res = await searchAutomated(
-      env,
-      `${keyword} site:${source.domain}`,
-      ["google"],
-      maxAgeToTimeRange(maxAge),
-    );
-    const data = (await res.json()) as {
-      results?: { url: string; title: string; content?: string; publishedDate?: string }[];
-    };
-    const relevant = (data.results ?? []).filter((r) => urlMatchesDomain(r.url, source.domain!));
-    const candidates: NewArticle[] = relevant.slice(0, 5).map((r) => ({
+    return new URL(domainSpec.startsWith("http") ? domainSpec : `https://${domainSpec}`).hostname;
+  } catch {
+    return domainSpec;
+  }
+}
+
+function findSourceForUrl(url: string, siteSources: Source[]): Source | undefined {
+  return siteSources.find((s) => urlMatchesDomain(url, s.domain!));
+}
+
+/** The loosest cutoff among these sources — any source with no cutoff means the search itself shouldn't be time-restricted (persist() still enforces each source's own cutoff afterward). */
+function looseMaxAgeDays(sources: Source[]): number | undefined {
+  let max = 0;
+  for (const s of sources) {
+    const d = maxAgeDaysFor(s);
+    if (d === undefined) return undefined;
+    max = Math.max(max, d);
+  }
+  return max;
+}
+
+/**
+ * Runs one Tavily search per keyword covering every `type: site` source's
+ * domain at once, instead of one search per source per keyword. Tavily charges
+ * a flat rate per request regardless of how many domains are listed, so
+ * consolidating this way cuts credit use roughly N-sources-fold for the same
+ * coverage. Results are attributed back to the source whose domain they match.
+ */
+async function collectSitesForKeyword(env: Env, siteSources: Source[], keyword: string): Promise<NewArticle[]> {
+  const domains = [...new Set(siteSources.map((s) => hostOf(s.domain!)))];
+  const results = await searchTavily(env, keyword, {
+    includeDomains: domains,
+    timeRange: maxAgeToTimeRange(looseMaxAgeDays(siteSources)),
+    topic: "news",
+  });
+
+  const candidates: NewArticle[] = [];
+  for (const r of results) {
+    const source = findSourceForUrl(r.url, siteSources);
+    if (!source) continue; // e.g. a path-restricted domain (facebook.com/SomePage) that this URL doesn't fall under
+    candidates.push({
       url: r.url,
       title: r.title,
       snippet: (r.content ?? "").slice(0, 500),
@@ -222,21 +252,30 @@ async function collectFromSiteKeyword(env: Env, source: Source, keyword: string)
       sourceName: source.name,
       trust: source.trust,
       keyword,
-      publishedAt: normalizeDate(r.publishedDate) ?? parseSnippetDate(r.content),
-    }));
-
-    const enriched = await enrichWithFullText(candidates);
-    return persist(env, enriched, maxAge);
-  } catch (err) {
-    console.error(`site collect failed for ${source.id}/${keyword}`, err);
-    return [];
+      publishedAt: parseSnippetDate(r.content),
+    });
   }
+  return candidates;
 }
 
-async function collectFromSite(env: Env, source: Source): Promise<NewArticle[]> {
-  if (!source.domain) return [];
-  const results = await Promise.all(config.keywords.map((keyword) => collectFromSiteKeyword(env, source, keyword)));
-  return results.flat();
+async function collectFromTavilySites(env: Env, activeSources: Source[]): Promise<NewArticle[]> {
+  const siteSources = activeSources.filter((s) => s.type === "site" && s.domain);
+  if (siteSources.length === 0) return [];
+
+  const results = await Promise.all(config.keywords.map((keyword) => collectSitesForKeyword(env, siteSources, keyword)));
+  const enriched = await enrichWithFullText(results.flat());
+
+  // Cutoff is per-article using its own source's maxAgeDays, which can differ
+  // even though the search above shared one (loosest) time_range.
+  const byId = new Map(siteSources.map((s) => [s.id, s]));
+  const grouped = new Map<string, NewArticle[]>();
+  for (const a of enriched) grouped.set(a.sourceId, [...(grouped.get(a.sourceId) ?? []), a]);
+
+  const inserted: NewArticle[] = [];
+  for (const [sourceId, articles] of grouped) {
+    inserted.push(...(await persist(env, articles, maxAgeDaysFor(byId.get(sourceId)))));
+  }
+  return inserted;
 }
 
 const PAGE_LINK_LIMIT = 20;
@@ -352,11 +391,8 @@ async function extractFollowUpQueries(env: Env, seedArticles: NewArticle[]): Pro
 async function collectFollowUpQuery(env: Env, query: string): Promise<NewArticle[]> {
   try {
     const maxAge = maxAgeDaysFor();
-    const res = await searchAutomated(env, query, [], maxAgeToTimeRange(maxAge));
-    const data = (await res.json()) as {
-      results?: { url: string; title: string; content?: string; publishedDate?: string }[];
-    };
-    const candidates: NewArticle[] = (data.results ?? []).slice(0, 5).map((r) => ({
+    const results = await searchTavily(env, query, { timeRange: maxAgeToTimeRange(maxAge), topic: "general" });
+    const candidates: NewArticle[] = results.slice(0, 5).map((r) => ({
       url: r.url,
       title: r.title,
       snippet: (r.content ?? "").slice(0, 500),
@@ -364,7 +400,7 @@ async function collectFollowUpQuery(env: Env, query: string): Promise<NewArticle
       sourceName: "ค้นเจาะลึกโดย AI (เว็บเปิด)",
       trust: "web",
       keyword: query,
-      publishedAt: normalizeDate(r.publishedDate) ?? parseSnippetDate(r.content),
+      publishedAt: parseSnippetDate(r.content),
     }));
 
     const enriched = await enrichWithFullText(candidates);
@@ -396,14 +432,13 @@ export async function runDailyCollection(env: Env): Promise<{
   followUpCollected: number;
 }> {
   const activeSources = config.sources.filter((s) => s.enabled !== false);
-  const roundResults = await Promise.all(
-    activeSources.map((source) => {
-      if (source.type === "rss") return collectFromRss(env, source);
-      if (source.type === "page") return collectFromPage(env, source);
-      return collectFromSite(env, source);
-    }),
+  const feedResults = await Promise.all(
+    activeSources
+      .filter((s) => s.type !== "site")
+      .map((source) => (source.type === "rss" ? collectFromRss(env, source) : collectFromPage(env, source))),
   );
-  const broadArticles = roundResults.flat();
+  const siteResults = await collectFromTavilySites(env, activeSources);
+  const broadArticles = [...feedResults.flat(), ...siteResults];
 
   const followUp = await runFollowUpRound(env, broadArticles);
 

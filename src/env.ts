@@ -9,4 +9,5 @@ export interface Env {
   DEEPSEEK_MODEL: string;
   ADMIN_TOKEN?: string;
   SEARXNG_SECRET?: string;
+  TAVILY_API_KEY?: string;
 }
