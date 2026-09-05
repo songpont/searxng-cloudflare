@@ -50,6 +50,7 @@ flowchart TD
             S["secondary"]
         end
         DB[("D1<br/>river-watch-db")]
+        R2[("R2<br/>river-watch-pdfs")]
     end
 
     U["ผู้ใช้ / เบราว์เซอร์"] -->|"GET /"| W
@@ -57,12 +58,13 @@ flowchart TD
     W <-->|"อ่าน/แก้ config"| CS
     W -->|"/search?format=json"| C
     W -->|"อ่านข่าว + รายงาน"| DB
+    W -->|"สำเนา PDF ถาวร"| R2
 
     CRON["Cron Triggers"] -->|"รายวัน 03:00 ICT"| W
     CRON -->|"รายสัปดาห์ อังคาร 03:00 ICT"| W
 
-    W -->|"ดึง RSS / เก็บลิงก์หน้า"| EXT["แหล่งข่าวภายนอก<br/>(Bangkok Post, MRC, ...)"]
-    W -->|"ค้น type: site + followup"| TAVILY["Tavily Search API"]
+    W -->|"ดึง RSS / เก็บลิงก์หน้า / ดาวน์โหลด PDF"| EXT["แหล่งข่าวภายนอก<br/>(Bangkok Post, MRC, PCD, ...)"]
+    W -->|"ค้น type: site + followup<br/>+ extract เนื้อหา/PDF"| TAVILY["Tavily Search API"]
     W -->|"สกัดคำค้น + สรุปข่าว"| LLM["DeepSeek API"]
 ```
 
@@ -71,7 +73,8 @@ flowchart TD
 - **Worker** — เราเตอร์ REST เดียว จัดการทั้ง API สาธารณะ, API ผู้ดูแล (ต้องมี `Authorization: Bearer <ADMIN_TOKEN>`) และเสิร์ฟไฟล์ static
 - **SearxngContainer** — คลาส [`Container`](https://developers.cloudflare.com/containers/) รัน image `searxng/searxng` สอง instance (`primary`, `secondary`) นอน (`sleepAfter`) หลังไม่มีทราฟฟิก 5 นาที การมีสองตัวช่วยได้จริงเพราะแต่ละ process จำสถานะ engine-suspension แยกกัน — ถ้า Google ถูกแบนใน primary ก็ fail over ไป secondary ได้ **ใช้กับ `/api/search`/`/api/chat` (ค้นหาแบบ manual) เท่านั้น** — news pipeline (`type: site` + AI-followup) ค้นผ่าน **Tavily** แทน (ดูเหตุผลใน [`src/news/tavily.ts`](src/news/tavily.ts))
 - **ConfigStore** — Durable Object เก็บ config การค้นหาที่ผู้ดูแลปรับไว้ (แยกจาก config ของ automation ที่ล็อกค่าไว้ตายตัว)
-- **D1 `river-watch-db`** — ตาราง `articles` และ `weekly_summaries` (สคีมาใน [`migrations/0001_init.sql`](migrations/0001_init.sql))
+- **D1 `river-watch-db`** — ตาราง `articles` และ `weekly_summaries` (สคีมาใน [`migrations/`](migrations/))
+- **R2 `river-watch-pdfs`** — สำเนาถาวรของไฟล์ PDF ที่ source แบบ `usePdfExtract` ดึงมา (เว็บราชการมักลบ/ย้ายไฟล์โดยไม่แจ้ง) key เป็น SHA-256 ของ URL ดูรายละเอียดใน [`src/news/pdf-archive.ts`](src/news/pdf-archive.ts)
 
 ---
 
@@ -87,14 +90,14 @@ flowchart LR
         PAGE["type: page<br/>โหลด URL ตรงๆ → เก็บลิงก์บนหน้า"]
     end
 
-    R1 --> ENRICH["เสริมเนื้อหาเต็ม<br/>fetchArticleText()<br/>ดึงหน้าบทความ → สกัดย่อหน้านำ"]
-    ENRICH --> INS[("บันทึกลง D1<br/>(INSERT OR IGNORE ตาม url)")]
+    R1 --> ENRICH["เสริมเนื้อหาเต็ม<br/>Tavily /extract (เมื่อมี) + fetchArticle() เอง<br/>เก็บอันที่ยาวกว่า · usePdfExtract → เก็บสำเนา PDF ลง R2 ด้วย"]
+    ENRICH --> INS[("บันทึกลง D1<br/>(upsert ตาม url — เติม snippet ให้ทีหลังได้ถ้ารอบก่อนว่าง)")]
 
     INS --> R2
 
     subgraph R2["รอบ 2 — ขุดต่อโดย AI (trust = web)"]
         Q["DeepSeek สกัดคำค้นเจาะจง 3–5 คำ<br/>(ชื่อบริษัท/หน่วยงาน/สถานที่)"]
-        WEB["ค้นเว็บเปิดด้วยคำค้นนั้น"]
+        WEB["ค้นด้วยคำค้นนั้น<br/>จำกัดโดเมนเดียวกับรอบ 1"]
     end
 
     R2 --> INS
@@ -110,7 +113,7 @@ flowchart LR
 | `official` | หน่วยงานราชการ / องค์กรระหว่างประเทศ | อ้างอิงก่อน |
 | `news` | สื่อมวลชน | ใช้เสริมบริบท |
 | `social` | โซเชียลมีเดีย | ใช้เสริม |
-| `web` | ผลจากการค้นเว็บเปิดโดย AI (รอบ 2) | **ยังไม่ยืนยัน** — ต้องกำกับทุกครั้งที่อ้างถึง |
+| `web` | ผลจากคำค้นที่ AI สกัดเองในรอบ 2 (จำกัดในโดเมนที่กำหนดไว้เหมือนรอบ 1 — ไม่ใช่เว็บเปิดทั้งหมด) | **ยังไม่ยืนยัน** — ต้องกำกับทุกครั้งที่อ้างถึง |
 
 ---
 
@@ -125,18 +128,23 @@ flowchart LR
 │       ├── collector.ts      รอบ 1 + รอบ 2, เขียนลง D1
 │       ├── rss.ts            พาร์เซอร์ RSS/Atom (regex ไม่มี DOM)
 │       ├── article-content.ts ดึงหน้าบทความ + สกัดข้อความ + คลาย gzip เอง
+│       ├── tavily.ts         client เรียก Tavily search + extract
+│       ├── pdf-archive.ts    เก็บสำเนา PDF ถาวรลง R2 (ใช้ได้กับทุก source ที่ตั้ง usePdfExtract)
+│       ├── sources/
+│       │   └── pdf-reports.ts  quirk เฉพาะเว็บ PCD (ชื่อรายงานจาก query param, วันที่ภาษาไทย) — แยกจาก collector หลัก
 │       └── summarizer.ts     รายงานรายสัปดาห์
 ├── config/
 │   └── sources.json          ⭐ แก้ที่นี่เพื่อเพิ่ม/ลบแหล่งข่าว แล้ว deploy
 ├── migrations/
-│   └── 0001_init.sql         สคีมา D1
+│   ├── 0001_init.sql         สคีมา D1 เริ่มต้น
+│   └── 0002_add_engine.sql   เพิ่มคอลัมน์ articles.engine
 ├── searxng/
 │   └── settings.yml          ค่า SearXNG (ใส่ secret_key ของตัวเองก่อนใช้จริง)
 ├── public/
-│   └── index.html            แดชบอร์ด (Thai, vanilla JS)
+│   └── index.html            แดชบอร์ด (Thai, vanilla JS) — 3 แท็บ + tag engine
 ├── Dockerfile                image ของ container
 ├── docker-compose.test.yml   รัน SearXNG 2 ตัวในเครื่องเพื่อทดสอบ
-└── wrangler.jsonc            bindings, cron, container, D1
+└── wrangler.jsonc            bindings (D1, R2, DO, Container), cron
 ```
 
 ---
@@ -152,6 +160,10 @@ npm install
 # 2. สร้าง D1 database แล้วเอา database_id ไปใส่ใน wrangler.jsonc
 npx wrangler d1 create river-watch-db
 npx wrangler d1 execute river-watch-db --remote --file migrations/0001_init.sql
+npx wrangler d1 execute river-watch-db --remote --file migrations/0002_add_engine.sql
+
+# 2.5 สร้าง R2 bucket สำหรับเก็บสำเนา PDF (ใช้กับ source ที่ตั้ง usePdfExtract)
+npx wrangler r2 bucket create river-watch-pdfs
 
 # 3. ตั้ง secrets (ทำครั้งเดียว)
 npx wrangler secret put DEEPSEEK_API_KEY
@@ -209,6 +221,16 @@ npm run deploy
       "url": "https://example.gov.th/news/environment",
       "include": "/news/",        // (ออปชัน) เอาเฉพาะลิงก์ที่ URL มีข้อความนี้
       "matchKeywords": true       // (ออปชัน) กรองด้วย keywords อีกชั้นหลังดึงเนื้อหา
+    },
+    {
+      "id": "pcd-epo1-water",
+      "name": "สนง.สิ่งแวดล้อมและควบคุมมลพิษที่ 1 — รายงานคุณภาพน้ำผิวดิน",
+      "type": "page",             // หน้ารายการเอกสาร PDF ของหน่วยงานราชการ
+      "trust": "official",
+      "enabled": true,
+      "url": "https://epo01.pcd.go.th/th/information/more/358",
+      "include": "/download/",    // ลิงก์ดาวน์โหลด PDF ตรงๆ ไม่ผ่านหน้า view
+      "usePdfExtract": true       // ดึงชื่อ/วันที่/เนื้อหาจากตัว PDF ผ่าน Tavily extract + เก็บสำเนาลง R2
     }
   ]
 }
@@ -219,14 +241,18 @@ npm run deploy
 | `type` | เสมอ | `"rss"` \| `"site"` \| `"page"` |
 | `url` | `type: rss` / `page` | RSS feed จริง / URL ของหน้ารายการข่าว |
 | `domain` | `type: site` | เช่น `bangkokpost.com` หรือ `bangkokpost.com/thailand` หรือ `facebook.com/ชื่อเพจ` |
-| `include` | — (`type: page`) | เก็บเฉพาะลิงก์ที่ URL มี substring นี้ เช่น `"/news/"` |
+| `include` | — (`type: page`) | เก็บเฉพาะลิงก์ที่ URL มี substring นี้ เช่น `"/news/"` หรือ `"/download/"` |
 | `crossHost` | — (`type: page`) | `true` = ตามลิงก์ไปโดเมนอื่นด้วย (ค่าเริ่มต้น: host เดียวกับหน้าเท่านั้น) |
-| `matchKeywords` | — (`type: page`) | `true` = ต้องตรง keywords (เช็คทั้งข้อความลิงก์และเนื้อข่าวที่ดึงมา) |
+| `matchKeywords` | — (`type: page`) | `true` = ต้องตรง keywords (เช็คทั้งข้อความลิงก์และเนื้อข่าวที่ดึงมา) — **ข้ามได้ถ้าหน้านั้นเป็นแหล่งเดียวที่รู้จำนวนเอกสารตายตัวอยู่แล้ว** (ดูตัวอย่าง `pcd-epo1-water`) ปล่อยให้ตัวสรุปรายสัปดาห์ตัดสินความเกี่ยวข้องแทน |
+| `titleKeywords` | — (`type: page`) | ใช้ list นี้แทน `keywords` หลักตอนเช็ค `matchKeywords` ของ source นี้ — จำเป็นเมื่อ title/ลิงก์มักมีแค่ชื่อสถานที่ ("แม่น้ำกก") ไม่มีคำเต็มแบบ keyword หลัก ("แม่น้ำกก สารพิษ") |
+| `usePdfExtract` | — (`type: page`) | `true` = ลิงก์ที่เก็บได้เป็น PDF/เอกสาร ไม่ใช่หน้าเว็บ — ดึงชื่อเรื่อง/วันที่/เนื้อหาเต็มจากตัวไฟล์ผ่าน Tavily `/extract` แทนการอ่านข้อความลิงก์ (มักเป็นแค่ปุ่ม "ดาวน์โหลด") และเก็บสำเนาไฟล์ลง R2 ด้วย |
 | `maxAgeDays` | — | override `maxAgeDays` ระดับบนสุดเฉพาะแหล่งนี้ |
 | `trust` | เสมอ | `official` \| `news` \| `social` |
 | `enabled` | — | ตั้ง `false` เพื่อปิดชั่วคราวโดยไม่ต้องลบ |
 
 > **`type: page` เหมาะกับหน้าที่ server render มา** (เว็บหน่วยงานส่วนใหญ่) — ถ้าหน้าเป็น JS render อย่างหน้าแท็กของ Bangkok Post ตัว HTML จะมีแต่ลิงก์ nav ทั่วไป ให้ใช้ `type: site` แทน หรือเปิด `matchKeywords: true` ให้กรองด้วยเนื้อข่าวจริงอีกชั้น
+>
+> **การดึงข้อมูล PDF** (`usePdfExtract: true`) ผ่านการทดสอบจริงแล้วว่า Tavily `/extract` ดึงข้อความจาก PDF ได้ตรงๆ โดยไม่ต้องมี PDF-parsing library เอง ถ้าดึงไม่สำเร็จรอบนี้ (เช่น PDF เป็นภาพสแกน) แถวจะถูกบันทึกไว้ก่อน (ชื่อ+ลิงก์ ไม่มีเนื้อหา) แล้วลองใหม่อัตโนมัติในรอบ cron ถัดไปที่หน้าเดิมถูกดึงซ้ำ (ดู `insertArticle`'s upsert ใน [`collector.ts`](src/news/collector.ts))
 
 ### การค้นแบบ `type: site` — รวม query แทนที่จะยิงแยกทีละแหล่ง
 
@@ -253,9 +279,9 @@ npm run deploy
 
 | Method | Path | คำอธิบาย |
 |--------|------|----------|
-| `GET` | `/` | แดชบอร์ด (static) — 3 แท็บ: สรุปรายสัปดาห์ / ข่าวทั้งหมด / สถิติ |
-| `GET` | `/api/news?limit=50&page=1` | ข่าวที่เก็บได้ ล่าสุดก่อน · `limit` = ต่อหน้า (1–100), คืน `total` มาด้วย |
-| `GET` | `/api/stats` | สถิติรวม: `perDay` (ต่อวัน แยกตาม trust), `byTrust`, `bySource` |
+| `GET` | `/` | แดชบอร์ด (static) — 3 แท็บ: สรุปรายสัปดาห์ / ข่าวทั้งหมด / สถิติ — ทุกข่าวมี tag บอกทั้ง trust และ engine ที่ใช้ดึง |
+| `GET` | `/api/news?limit=50&page=1` | ข่าวที่เก็บได้ ล่าสุดก่อน · `limit` = ต่อหน้า (1–100), คืน `total` มาด้วย · แต่ละแถวมี `engine` (`rss` \| `page` \| `tavily`) |
+| `GET` | `/api/stats` | สถิติรวม: `perDay`/`byTrust` (แยกตาม trust), `bySource`, `perDayByEngine`/`byEngine` (แยกตาม engine) |
 | `GET` | `/api/summary/latest` | รายงานรายสัปดาห์ล่าสุด |
 | `GET` | `/api/summaries?limit=26` | รายการรายงานย้อนหลัง |
 | `GET` | 🔒 `/api/search?q=...` | ค้นผ่าน SearXNG (ใช้ config ของผู้ดูแล) |
@@ -310,5 +336,9 @@ D1 ในเครื่องรันไฟล์ migration แบบเดี
 - **การคลาย gzip เอง** — บาง origin (เช่น Bangkok Post หลัง CDN ByteArk) ส่ง `Content-Encoding: gzip` กลับมาเสมอแม้ runtime ไม่ได้ร้องขอ ทำให้ `res.text()` ได้ไบต์ขยะ `article-content.ts` จึงตรวจ gzip magic number (`0x1f 0x8b`) เองแล้วคลายด้วย `DecompressionStream` — ถ้า runtime คลายให้แล้วก็ปล่อยผ่าน
 - **แก้ข้อความกลับหัว (reversed-text)** — Bangkok Post เขียนเนื้อบทความแบบ**สลับตัวอักษรจากหลังมาหน้า**ใน HTML แล้วพลิกกลับด้วย CSS (`unicode-bidi: bidi-override`) เพื่อกัน scraper `extractArticleText` จึงตรวจทีละบรรทัดว่ากลับหัวไหม (นับคำเชื่อมภาษาอังกฤษแบบปกติเทียบกับแบบกลับหัว) แล้ว reverse บรรทัดนั้นคืน ถ้ายังอ่านไม่ออกก็คืน `null` เพื่อ fallback ไปใช้ snippet จาก RSS แทน
 - **automation ใช้ config ล็อกไว้** — collector ค้นด้วย `AUTOMATION_DEFAULTS` เสมอ ไม่รับค่าที่ผู้ดูแลปรับไว้เอง (เช่น บังคับ `language: th` จะทำให้คำค้นภาษาอังกฤษได้ผลลัพธ์ศูนย์)
-- **กันข่าวซ้ำ** — `INSERT OR IGNORE` ตามคอลัมน์ `url` (UNIQUE) การค้นซ้ำจะไม่เขียนทับของเดิม
+- **กันข่าวซ้ำแบบ upsert** — `INSERT ... ON CONFLICT(url) DO UPDATE ... WHERE length(articles.snippet) = 0 AND length(excluded.snippet) > 0` แทน `INSERT OR IGNORE` ธรรมดา: URL ที่เคยเก็บไว้แต่ยังไม่มีเนื้อหา (เช่น PDF ที่ extract ไม่สำเร็จตอนนั้น) จะถูกเติมให้ทีหลังถ้ารอบ cron ถัดไปดึงสำเร็จ — ไม่เขียนทับแถวที่มีเนื้อหาดีอยู่แล้วเด็ดขาด
+- **`engine` ต่อข่าว** — คอลัมน์ `articles.engine` (`rss` \| `page` \| `tavily`) บอกว่าแถวนั้นได้มาจากกลไกไหน แสดงเป็น tag ในแดชบอร์ดและแยกสถิติใน `/api/stats` — ปัจจุบัน news pipeline ไม่มีแถวไหนใช้ SearXNG แล้ว (ค่า `searxng` เผื่อไว้เฉยๆ ยังไม่มีอะไร insert)
 - **ช่วงเวลาของรายงาน** — ยึด `published_at` ของข่าวเป็นหลัก ข่าวที่ไม่รู้วันที่ถึง fallback ไปใช้ `collected_at` เพื่อไม่ให้ตกหล่น
+- **สรุปรายสัปดาห์ไม่เอาผลตรวจเก่ามาเล่าเป็นปัจจุบัน** — prompt ของ `runWeeklySummary` บอกวันที่อ้างอิงของรายงานตรงๆ แล้วสั่งให้เทียบอายุ "ผลการตรวจ" แต่ละรายการ ถ้าเกิน 30 วันห้ามบรรยายเป็นสถานการณ์ล่าสุด ให้ใช้เทียบแนวโน้มเท่านั้นพร้อมระบุวันที่กำกับเสมอ — ถ้าไม่มีผลตรวจใหม่เลยในสัปดาห์นั้น ให้พูดตรงๆ ว่าไม่มี แทนที่จะหยิบของเก่ามาเล่า
+- **รอบ 2 (AI-followup) จำกัดโดเมนเหมือนรอบ 1** — เดิมค้นแบบเปิดกว้างทั้งเว็บ พบว่าคำค้นที่ AI เดา (ชื่อบริษัท/สถานที่) หลุดไปแมตช์เว็บที่ไม่เกี่ยวเลย (เช่น เว็บซูเปอร์มาร์เก็ตที่ชื่อพื้นที่ในหน้า branch ตรงกับคำค้นแบบผิวเผิน) ทั้งที่ผ่าน `MIN_RELEVANCE_SCORE` แล้ว — `includeDomains` เป็นตัวกรองที่แน่นกว่า relevance score กับเนื้อหาเว็บทั่วไปมาก จึงใช้ domain list เดียวกับ `type: site` แทน
+- **ตาราง markdown ใน dashboard** — `markdownToHtml()` ฝั่ง client รองรับ GFM table (แถวหัว + แถวคั่น `|---|---|` + แถวข้อมูล) แปลงเป็น `<table>` จริงพร้อม scroll แนวนอนสำหรับตารางกว้าง
