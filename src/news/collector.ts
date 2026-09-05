@@ -46,6 +46,16 @@ interface Source {
   titleKeywords?: string[];
   /** type: page — the harvested links are PDFs (or similar): fetch full text via Tavily's /extract instead of our own HTML-only fetch, and derive title/date from that text when the listing page's own link text/markup doesn't carry them. */
   usePdfExtract?: boolean;
+  /**
+   * This source publishes on a fixed periodic schedule (e.g. a monthly
+   * water-quality report), not as daily news. Its own published_at is the
+   * underlying data's sampling period — routinely more than a week old by the
+   * time we discover a new one, which is expected for this source and not a
+   * sign of staleness. Tag its articles so the weekly summarizer includes them
+   * by when we found them (collected_at) rather than excluding them by
+   * published_at, same as it already does for articles with no known date.
+   */
+  periodicReport?: boolean;
   /** Drop articles whose known publish date is older than this many days. Overrides the top-level maxAgeDays. */
   maxAgeDays?: number;
 }
@@ -74,6 +84,8 @@ interface NewArticle {
   publishedAt?: string;
   /** Set from source.usePdfExtract — tells enrichWithFullText to run this URL through Tavily's /extract even though engine isn't "tavily", and to derive title/date from the extracted text. Never persisted (insertArticle only binds its own named fields). */
   useTavilyExtract?: boolean;
+  /** Set from source.periodicReport — persisted; see the field's doc comment on Source. */
+  periodic?: boolean;
 }
 
 function matchesKeyword(text: string, keywords: string[]): string | undefined {
@@ -222,8 +234,8 @@ async function enrichWithFullText(env: Env, candidates: NewArticle[]): Promise<N
 async function insertArticle(env: Env, article: NewArticle): Promise<NewArticle | null> {
   const result = await env.river_watch_db
     .prepare(
-      `INSERT INTO articles (url, title, snippet, source_id, source_name, trust, engine, keyword, published_at, collected_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO articles (url, title, snippet, source_id, source_name, trust, engine, keyword, published_at, collected_at, periodic)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(url) DO UPDATE SET
          title = excluded.title,
          snippet = excluded.snippet,
@@ -241,6 +253,7 @@ async function insertArticle(env: Env, article: NewArticle): Promise<NewArticle 
       article.keyword ?? null,
       article.publishedAt ?? null,
       new Date().toISOString(),
+      article.periodic ? 1 : 0,
     )
     .run();
   return (result.meta.changes ?? 0) > 0 ? article : null;
@@ -462,6 +475,7 @@ async function collectFromPage(env: Env, source: Source): Promise<NewArticle[]> 
         engine: "page",
         keyword,
         useTavilyExtract: source.usePdfExtract,
+        periodic: source.periodicReport,
       });
     }
 

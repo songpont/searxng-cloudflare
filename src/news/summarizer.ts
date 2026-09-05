@@ -26,16 +26,23 @@ export async function runWeeklySummary(env: Env): Promise<{ summary: string; cou
   // not merely that we happened to scrape it this week (a search can resurface
   // an old article at any time). published_at is unreliable for many sources
   // (see collector.ts), so articles with no known date fall back to being
-  // included by collected_at instead of being silently dropped.
+  // included by collected_at instead of being silently dropped. Sources
+  // flagged periodic (a fixed-schedule report, e.g. monthly) get the same
+  // collected_at treatment even when published_at IS set: their published_at
+  // is the underlying data's sampling period, which is routinely more than a
+  // week old by the time a new one is found — expected for these, not
+  // staleness, so excluding them by published_at would drop every one of them
+  // from every week's summary forever.
   const { results } = await env.river_watch_db
     .prepare(
       `SELECT title, snippet, source_name, trust, url, published_at FROM articles
-       WHERE (published_at IS NOT NULL AND published_at >= ? AND published_at <= ?)
-          OR (published_at IS NULL AND collected_at >= ? AND collected_at <= ?)
+       WHERE (periodic = 0 AND published_at IS NOT NULL AND published_at >= ? AND published_at <= ?)
+          OR (periodic = 0 AND published_at IS NULL AND collected_at >= ? AND collected_at <= ?)
+          OR (periodic = 1 AND collected_at >= ? AND collected_at <= ?)
        ORDER BY CASE trust WHEN 'official' THEN 0 WHEN 'news' THEN 1 WHEN 'social' THEN 2 ELSE 3 END, collected_at DESC
        LIMIT 60`,
     )
-    .bind(weekStartIso, weekEndIso, weekStartIso, weekEndIso)
+    .bind(weekStartIso, weekEndIso, weekStartIso, weekEndIso, weekStartIso, weekEndIso)
     .all<ArticleRow>();
 
   if (results.length === 0) {
