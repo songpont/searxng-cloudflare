@@ -252,7 +252,7 @@ async function collectSitesForKeyword(env: Env, siteSources: Source[], keyword: 
       sourceName: source.name,
       trust: source.trust,
       keyword,
-      publishedAt: parseSnippetDate(r.content),
+      publishedAt: normalizeDate(r.published_date) ?? parseSnippetDate(r.content),
     });
   }
   return candidates;
@@ -400,7 +400,7 @@ async function collectFollowUpQuery(env: Env, query: string): Promise<NewArticle
       sourceName: "ค้นเจาะลึกโดย AI (เว็บเปิด)",
       trust: "web",
       keyword: query,
-      publishedAt: parseSnippetDate(r.content),
+      publishedAt: normalizeDate(r.published_date) ?? parseSnippetDate(r.content),
     }));
 
     const enriched = await enrichWithFullText(candidates);

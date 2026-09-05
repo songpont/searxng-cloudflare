@@ -7,6 +7,8 @@ export interface TavilyResult {
   title: string;
   url: string;
   content: string;
+  /** RFC-822-ish string (e.g. "Sun, 24 May 2026 00:00:00 GMT") when Tavily could determine one — present on most results in practice, despite not being documented in the public API reference. */
+  published_date?: string;
 }
 
 interface TavilySearchOptions {
