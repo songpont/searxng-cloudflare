@@ -2,6 +2,7 @@ import type { Env } from "../env";
 import { searchTavily, extractTavily, type TavilyResult, type TavilyTimeRange } from "./tavily";
 import { parseFeed } from "./rss";
 import { fetchArticle, fetchHtml, MAX_LENGTH } from "./article-content";
+import { looksLikeGenericLabel, titleFromContent, titleFromQueryParam, parseThaiReportDate } from "./sources/pdf-reports";
 import sourcesFile from "../../config/sources.json";
 
 /**
@@ -32,6 +33,18 @@ interface Source {
   crossHost?: boolean;
   /** type: page — require the link text to match one of the global keywords (default: take every link). */
   matchKeywords?: boolean;
+  /**
+   * type: page — use this list instead of the global keywords for matchKeywords
+   * on this source. The global keywords are full search-query phrases (river +
+   * pollution word together, e.g. "แม่น้ำกก สารพิษ") — right for narrowing a
+   * search engine query, but too strict for matching a title/report name that
+   * just names the river without a pollution word attached (a report titled
+   * "รายงานคุณภาพน้ำแม่น้ำกก ครั้งที่ 20" is obviously relevant but contains
+   * none of those 2-word phrases verbatim). Use bare place/river names here.
+   */
+  titleKeywords?: string[];
+  /** type: page — the harvested links are PDFs (or similar): fetch full text via Tavily's /extract instead of our own HTML-only fetch, and derive title/date from that text when the listing page's own link text/markup doesn't carry them. */
+  usePdfExtract?: boolean;
   /** Drop articles whose known publish date is older than this many days. Overrides the top-level maxAgeDays. */
   maxAgeDays?: number;
 }
@@ -58,6 +71,8 @@ interface NewArticle {
   engine: Engine;
   keyword?: string;
   publishedAt?: string;
+  /** Set from source.usePdfExtract — tells enrichWithFullText to run this URL through Tavily's /extract even though engine isn't "tavily", and to derive title/date from the extracted text. Never persisted (insertArticle only binds its own named fields). */
+  useTavilyExtract?: boolean;
 }
 
 function matchesKeyword(text: string, keywords: string[]): string | undefined {
@@ -155,19 +170,34 @@ function urlMatchesDomain(url: string, domainSpec: string): boolean {
  *     regardless of engine.
  */
 async function enrichWithFullText(env: Env, candidates: NewArticle[]): Promise<NewArticle[]> {
-  const tavilyUrls = [...new Set(candidates.filter((a) => a.engine === "tavily").map((a) => a.url))];
+  const tavilyUrls = [
+    ...new Set(candidates.filter((a) => a.engine === "tavily" || a.useTavilyExtract).map((a) => a.url)),
+  ];
   const extracted = await extractTavily(env, tavilyUrls);
 
   return Promise.all(
     candidates.map(async (a) => {
       let snippet = a.snippet;
+      let title = a.title;
+      let publishedAt = a.publishedAt;
+
       const ext = extracted.get(a.url);
       if (ext && ext.length > snippet.length) snippet = ext.slice(0, MAX_LENGTH);
+      // A PDF/doc listing page's link text is usually just a generic button
+      // label ("ดาวน์โหลด"/"ดูออนไลน์"), not the document's actual title or
+      // date — pull both from the extracted text itself instead.
+      if (a.useTavilyExtract && ext) {
+        if (looksLikeGenericLabel(title)) title = titleFromContent(ext) ?? title;
+        publishedAt = publishedAt ?? parseThaiReportDate(ext);
+      }
 
+      // Our own fetch only understands HTML (article-content.ts bails on any
+      // other content-type), so it's a no-op for PDFs — harmless to still try.
       const article = await fetchArticle(a.url);
-      if (!article) return { ...a, snippet };
-      if (article.text.length > snippet.length) snippet = article.text;
-      return { ...a, snippet, publishedAt: a.publishedAt ?? article.publishedAt };
+      if (article && article.text.length > snippet.length) snippet = article.text;
+      publishedAt = publishedAt ?? article?.publishedAt;
+
+      return { ...a, snippet, title, publishedAt };
     }),
   );
 }
@@ -323,11 +353,35 @@ async function collectFromTavilySites(env: Env, activeSources: Source[]): Promis
 const PAGE_LINK_LIMIT = 20;
 
 /** Pulls <a href> links (absolute URL + visible text) out of a listing page's HTML. */
+/**
+ * A page's actual link-resolution base per HTML spec — its own URL, unless it
+ * declares <base href="...">, which some government CMS sites do (this
+ * project first hit it on a PCD regional office site whose listing emits
+ * root-relative-looking hrefs like "th/download/?..." meant to resolve
+ * against the site root, not the current page's path).
+ */
+function resolveBase(html: string, pageUrl: string): URL {
+  const baseHref = html.match(/<base[^>]+href=(["'])(.*?)\1/i)?.[2];
+  if (baseHref) {
+    try {
+      return new URL(baseHref, pageUrl);
+    } catch {
+      /* fall through to the page's own URL */
+    }
+  }
+  return new URL(pageUrl);
+}
+
 function extractLinks(html: string, base: URL): { url: string; text: string }[] {
   const out: { url: string; text: string }[] = [];
   const seen = new Set<string>();
-  for (const m of html.matchAll(/<a\s+[^>]*href=["']([^"'\s>]+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
-    const raw = m[1].trim();
+  // The quote character is captured and re-used to close the attribute (\1)
+  // rather than blacklisting a fixed set of characters from the href value —
+  // some sites emit literal, un-percent-encoded spaces and non-ASCII text
+  // inside query strings, which a blacklist-based [^"'\s>]+ class would cut
+  // off mid-value and then fail to find a closing quote for.
+  for (const m of html.matchAll(/<a\s+[^>]*href=(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi)) {
+    const raw = m[2].trim();
     if (!raw || /^(?:javascript:|mailto:|tel:|#)/i.test(raw)) continue;
     let url: string;
     try {
@@ -339,7 +393,7 @@ function extractLinks(html: string, base: URL): { url: string; text: string }[] 
     }
     if (seen.has(url)) continue;
     seen.add(url);
-    const text = m[2].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const text = m[3].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
     out.push({ url, text });
   }
   return out;
@@ -360,7 +414,8 @@ async function collectFromPage(env: Env, source: Source): Promise<NewArticle[]> 
   try {
     const html = await fetchHtml(source.url);
     if (!html) return [];
-    const base = new URL(source.url);
+    const base = resolveBase(html, source.url);
+    const keywordList = source.titleKeywords ?? config.keywords;
 
     const candidates: NewArticle[] = [];
     for (const link of extractLinks(html, base)) {
@@ -368,25 +423,30 @@ async function collectFromPage(env: Env, source: Source): Promise<NewArticle[]> 
       if (link.url === source.url) continue;
       if (!source.crossHost && new URL(link.url).host !== base.host) continue;
       if (source.include && !link.url.includes(source.include)) continue;
-      const keyword = matchesKeyword(link.text, config.keywords);
-      // Drop only links whose (present) text clearly isn't on topic; links with
-      // no visible text are kept for the post-fetch check below.
-      if (source.matchKeywords && link.text && !keyword) continue;
+      const title = titleFromQueryParam(link.url) || link.text || link.url;
+      const keyword = matchesKeyword(title, keywordList);
+      // Drop only links whose (present, informative) title text clearly isn't
+      // on topic; links with no useful title yet — a bare URL, or a generic
+      // button label like "ดาวน์โหลด" on a document-listing page — are kept
+      // for the post-fetch check below, since there's nothing to judge yet.
+      const hasInformativeText = title !== link.url && !looksLikeGenericLabel(title);
+      if (source.matchKeywords && hasInformativeText && !keyword) continue;
       candidates.push({
         url: link.url,
-        title: link.text || link.url,
+        title,
         snippet: "",
         sourceId: source.id,
         sourceName: source.name,
         trust: source.trust,
         engine: "page",
         keyword,
+        useTavilyExtract: source.usePdfExtract,
       });
     }
 
     const enriched = await enrichWithFullText(env, candidates);
     const topical = source.matchKeywords
-      ? enriched.filter((a) => matchesKeyword(`${a.title} ${a.snippet}`, config.keywords))
+      ? enriched.filter((a) => matchesKeyword(`${a.title} ${a.snippet}`, keywordList))
       : enriched;
 
     return persist(env, topical, maxAgeDaysFor(source));
