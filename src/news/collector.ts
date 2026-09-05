@@ -431,16 +431,20 @@ async function extractFollowUpQueries(env: Env, seedArticles: NewArticle[]): Pro
   }
 }
 
-async function collectFollowUpQuery(env: Env, query: string): Promise<NewArticle[]> {
+async function collectFollowUpQuery(env: Env, query: string, domains: string[]): Promise<NewArticle[]> {
   try {
     const maxAge = maxAgeDaysFor();
-    const results = await searchTavily(env, query, { timeRange: maxAgeToTimeRange(maxAge), topic: "general" });
+    const results = await searchTavily(env, query, {
+      includeDomains: domains,
+      timeRange: maxAgeToTimeRange(maxAge),
+      topic: "general",
+    });
     const candidates: NewArticle[] = relevant(results).slice(0, 5).map((r) => ({
       url: r.url,
       title: r.title,
       snippet: (r.content ?? "").slice(0, 500),
       sourceId: "ai-followup",
-      sourceName: "ค้นเจาะลึกโดย AI (เว็บเปิด)",
+      sourceName: "ค้นเจาะลึกโดย AI (แหล่งข่าวเดิม)",
       trust: "web",
       engine: "tavily",
       keyword: query,
@@ -456,16 +460,25 @@ async function collectFollowUpQuery(env: Env, query: string): Promise<NewArticle
 }
 
 /**
- * Round 2: an open-web, AI-guided dig based on what round 1 found. Unlike the
- * fixed keyword/source sweep, these queries and the sites they land on are
- * not vetted — inserted with trust="web" so the summarizer (and the UI) can
- * clearly flag them as unverified rather than mixing them in with official/news.
+ * Round 2: an AI-guided dig based on what round 1 found, using queries round 1
+ * never tried (company/mine names, place names, people) — but restricted to
+ * the same `type: site` domains as round 1, not the open web. An unrestricted
+ * search here previously let unrelated results through (e.g. a supermarket
+ * chain's branch-locator page matching on a place name in the query) despite
+ * MIN_RELEVANCE_SCORE — a scoped domain list is a much harder filter than a
+ * relevance score against arbitrary web content. Still inserted as trust="web"
+ * since the query terms themselves are AI-guessed and unvetted, unlike the
+ * fixed keyword list.
  */
-async function runFollowUpRound(env: Env, seedArticles: NewArticle[]): Promise<{ queries: string[]; collected: number }> {
+async function runFollowUpRound(
+  env: Env,
+  seedArticles: NewArticle[],
+  domains: string[],
+): Promise<{ queries: string[]; collected: number }> {
   if (seedArticles.length === 0 || !env.DEEPSEEK_API_KEY) return { queries: [], collected: 0 };
   const queries = await extractFollowUpQueries(env, seedArticles);
   if (queries.length === 0) return { queries: [], collected: 0 };
-  const results = await Promise.all(queries.map((q) => collectFollowUpQuery(env, q)));
+  const results = await Promise.all(queries.map((q) => collectFollowUpQuery(env, q, domains)));
   return { queries, collected: results.flat().length };
 }
 
@@ -484,7 +497,10 @@ export async function runDailyCollection(env: Env): Promise<{
   const siteResults = await collectFromTavilySites(env, activeSources);
   const broadArticles = [...feedResults.flat(), ...siteResults];
 
-  const followUp = await runFollowUpRound(env, broadArticles);
+  const siteDomains = [
+    ...new Set(activeSources.filter((s) => s.type === "site" && s.domain).map((s) => hostOf(s.domain!))),
+  ];
+  const followUp = await runFollowUpRound(env, broadArticles, siteDomains);
 
   return {
     broadCollected: broadArticles.length,
