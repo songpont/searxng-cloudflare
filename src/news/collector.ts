@@ -3,6 +3,7 @@ import { searchTavily, extractTavily, type TavilyResult, type TavilyTimeRange } 
 import { parseFeed } from "./rss";
 import { fetchArticle, fetchHtml, MAX_LENGTH } from "./article-content";
 import { looksLikeGenericLabel, titleFromContent, titleFromQueryParam, parseThaiReportDate } from "./sources/pdf-reports";
+import { archiveDocument } from "./pdf-archive";
 import sourcesFile from "../../config/sources.json";
 
 /**
@@ -173,7 +174,14 @@ async function enrichWithFullText(env: Env, candidates: NewArticle[]): Promise<N
   const tavilyUrls = [
     ...new Set(candidates.filter((a) => a.engine === "tavily" || a.useTavilyExtract).map((a) => a.url)),
   ];
-  const extracted = await extractTavily(env, tavilyUrls);
+  const pdfUrls = [...new Set(candidates.filter((a) => a.useTavilyExtract).map((a) => a.url))];
+  const [extracted] = await Promise.all([
+    extractTavily(env, tavilyUrls),
+    // Runs alongside the extract call, not blocking it — archival is a
+    // best-effort side job (own copy in case the source link rots later),
+    // not on the critical path for getting today's text.
+    Promise.all(pdfUrls.map((url) => archiveDocument(env, url))),
+  ]);
 
   return Promise.all(
     candidates.map(async (a) => {
@@ -203,11 +211,24 @@ async function enrichWithFullText(env: Env, candidates: NewArticle[]): Promise<N
 }
 
 /** Inserts the article if its URL is new; returns it (for downstream use) only when actually inserted. */
+/**
+ * Inserts a new URL, or — the one case an existing row is touched — fills in
+ * a previously-empty snippet if this pass got real content where an earlier
+ * one didn't (a PDF whose Tavily extraction failed before but succeeds this
+ * time; the same listing re-surfaces the same URL every day, so this happens
+ * for free on the next daily run with no separate retry job needed). Never
+ * overwrites a row that already has content.
+ */
 async function insertArticle(env: Env, article: NewArticle): Promise<NewArticle | null> {
   const result = await env.river_watch_db
     .prepare(
-      `INSERT OR IGNORE INTO articles (url, title, snippet, source_id, source_name, trust, engine, keyword, published_at, collected_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO articles (url, title, snippet, source_id, source_name, trust, engine, keyword, published_at, collected_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(url) DO UPDATE SET
+         title = excluded.title,
+         snippet = excluded.snippet,
+         published_at = COALESCE(articles.published_at, excluded.published_at)
+       WHERE length(articles.snippet) = 0 AND length(excluded.snippet) > 0`,
     )
     .bind(
       article.url,

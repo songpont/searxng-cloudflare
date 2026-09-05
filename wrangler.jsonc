@@ -33,6 +33,13 @@
     }
   ],
 
+  "r2_buckets": [
+    {
+      "binding": "PDF_ARCHIVE",
+      "bucket_name": "river-watch-pdfs"
+    }
+  ],
+
   "triggers": {
     // times are UTC; ICT = UTC+7
     // daily collection: 20:00 UTC = 03:00 ICT
