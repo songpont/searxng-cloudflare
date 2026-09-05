@@ -98,6 +98,11 @@
   .summary-html a { color: #1a56db; text-decoration: none; }
   .summary-html a:hover { text-decoration: underline; }
   .summary-html strong { color: #111827; }
+  .summary-html .table-wrap { overflow-x: auto; margin: 0.7rem 0; }
+  .summary-html table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+  .summary-html th, .summary-html td { border: 1px solid #e2e5ea; padding: 0.45rem 0.7rem; text-align: left; vertical-align: top; }
+  .summary-html th { background: #f7f8fa; color: #5b6472; font-weight: 600; white-space: nowrap; }
+  .summary-html tbody tr:nth-child(even) { background: #fafbfc; }
 
   h2.section-title { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: #8a91a0; margin: 0 0 0.9rem; }
 
@@ -321,6 +326,19 @@ function inlineMd(text) {
 // Converts the AI's markdown summary into safe HTML: text is HTML-escaped
 // first, so any injected tags stay inert text — only our own generated
 // elements below become real markup.
+// A GFM table separator row: cells of "---", ":--", "--:" or ":-:" joined by "|",
+// with or without the leading/trailing pipe ("|---|---|" or "---|---").
+function isTableSeparator(line) {
+  return /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?\s*$/.test(line);
+}
+
+function splitTableRow(line) {
+  let s = line.trim();
+  if (s.startsWith("|")) s = s.slice(1);
+  if (s.endsWith("|")) s = s.slice(0, -1);
+  return s.split("|").map(c => c.trim());
+}
+
 function markdownToHtml(md) {
   const lines = escapeHtml(md).split(/\r?\n/);
   let html = "";
@@ -332,6 +350,18 @@ function markdownToHtml(md) {
     if (/^## /.test(line)) { html += `<h3>${inlineMd(line.slice(3))}</h3>`; i++; continue; }
     if (/^# /.test(line)) { html += `<h2>${inlineMd(line.slice(2))}</h2>`; i++; continue; }
     if (/^---+$/.test(line.trim())) { html += "<hr>"; i++; continue; }
+    if (line.includes("|") && line.trim() !== "" && i + 1 < lines.length && isTableSeparator(lines[i + 1])) {
+      const header = splitTableRow(line);
+      i += 2;
+      const rows = [];
+      while (i < lines.length && lines[i].trim().startsWith("|")) { rows.push(splitTableRow(lines[i])); i++; }
+      html += "<div class=\"table-wrap\"><table><thead><tr>" +
+        header.map(h => `<th>${inlineMd(h)}</th>`).join("") +
+        "</tr></thead><tbody>" +
+        rows.map(r => "<tr>" + r.map(c => `<td>${inlineMd(c)}</td>`).join("") + "</tr>").join("") +
+        "</tbody></table></div>";
+      continue;
+    }
     if (/^[-*] /.test(line)) {
       const items = [];
       while (i < lines.length && /^[-*] /.test(lines[i])) { items.push(`<li>${inlineMd(lines[i].slice(2))}</li>`); i++; }
