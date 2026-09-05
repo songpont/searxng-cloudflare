@@ -103,7 +103,7 @@ export default {
     }
 
     if (url.pathname === "/api/stats") {
-      const [perDay, byTrust, bySource] = await Promise.all([
+      const [perDay, byTrust, bySource, perDayByEngine, byEngine] = await Promise.all([
         env.river_watch_db
           .prepare(
             `SELECT substr(collected_at, 1, 10) AS day, trust, COUNT(*) AS n
@@ -120,8 +120,29 @@ export default {
              FROM articles GROUP BY source_id ORDER BY n DESC`,
           )
           .all(),
+        env.river_watch_db
+          .prepare(
+            `SELECT substr(collected_at, 1, 10) AS day, COALESCE(engine, 'ไม่ทราบ') AS engine, COUNT(*) AS n
+             FROM articles
+             WHERE collected_at >= date('now', '-90 days')
+             GROUP BY day, engine
+             ORDER BY day`,
+          )
+          .all(),
+        env.river_watch_db
+          .prepare(
+            `SELECT COALESCE(engine, 'ไม่ทราบ') AS engine, COUNT(*) AS n
+             FROM articles GROUP BY engine ORDER BY n DESC`,
+          )
+          .all(),
       ]);
-      return Response.json({ perDay: perDay.results, byTrust: byTrust.results, bySource: bySource.results });
+      return Response.json({
+        perDay: perDay.results,
+        byTrust: byTrust.results,
+        bySource: bySource.results,
+        perDayByEngine: perDayByEngine.results,
+        byEngine: byEngine.results,
+      });
     }
 
     if (url.pathname === "/api/summary/latest") {

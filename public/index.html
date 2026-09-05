@@ -132,6 +132,21 @@
   .trust-news { background: #fbf3d9; color: #8a6d1a; }
   .trust-social { background: #eef0f3; color: #5b6472; }
   .trust-web { background: #fdeadb; color: #a15a1a; }
+  .engine-tag {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 0.1rem 0.5rem;
+    border-radius: 4px;
+    margin-right: 0.4rem;
+    border: 1px solid currentColor;
+    background: none;
+  }
+  .engine-rss { color: #6b5fc7; }
+  .engine-tavily { color: #1a8f8f; }
+  .engine-page { color: #b0762a; }
+  .engine-searxng { color: #3f6fc4; }
+  .engine-unknown { color: #9aa3b0; }
   .empty { color: #8a91a0; font-size: 0.85rem; padding: 1rem; }
 
   /* news tab */
@@ -235,12 +250,28 @@
       <h2>แยกตามแหล่งข่าว</h2>
       <div id="sourceChart"><div class="empty">กำลังโหลด...</div></div>
     </div>
+    <div class="card">
+      <h2>ยอดสะสมแยกตาม engine ที่ใช้ดึงข้อมูล</h2>
+      <div class="stats-row" id="engineTotals"><div class="empty">กำลังโหลด...</div></div>
+    </div>
+    <div class="card">
+      <h2>จำนวนข่าวที่ดึงได้ต่อวัน แยกตาม engine (90 วันล่าสุด)</h2>
+      <div id="engineChart"><div class="empty">กำลังโหลด...</div></div>
+    </div>
   </div>
 </div>
 
 <script>
 const TRUSTS = ["official", "news", "social", "web"];
 const TRUST_FILL = { official: "#3fae63", news: "#e0b93c", social: "#9aa3b0", web: "#e08a3c" };
+
+const ENGINES = ["rss", "tavily", "page", "searxng"];
+const ENGINE_FILL = { rss: "#6b5fc7", tavily: "#1a8f8f", page: "#b0762a", searxng: "#3f6fc4" };
+const ENGINE_LABEL = { rss: "RSS feed", tavily: "Tavily", page: "โหลดหน้าเว็บตรง", searxng: "SearXNG" };
+
+function engineLabel(engine) {
+  return ENGINE_LABEL[engine] || "ไม่ทราบ";
+}
 
 function trustLabel(trust) {
   return { official: "ทางการ", news: "สื่อ", social: "โซเชียล", web: "เว็บเปิด · ยังไม่ยืนยัน" }[trust] || trust;
@@ -383,6 +414,7 @@ function articleCard(a) {
   return `
     <div class="article">
       <span class="trust-tag trust-${a.trust}">${trustLabel(a.trust)}</span>
+      <span class="engine-tag engine-${a.engine || "unknown"}">${engineLabel(a.engine)}</span>
       <a class="title" href="${a.url}" target="_blank" rel="noopener noreferrer">${escapeHtml(a.title ?? a.url)}</a>
       <div class="dates">
         <span><b>วันที่ข่าว:</b> ${formatDate(a.published_at) ?? "ไม่ระบุ"}</span>
@@ -458,15 +490,15 @@ function renderTrustTotals(byTrust) {
     sorted.map(r => `<div class="stat"><b>${r.n}</b><span>${trustLabel(r.trust)}</span></div>`).join("");
 }
 
-// Stacked vertical bars: one bar per day, segments coloured by trust level.
-function renderDailyChart(perDay) {
-  const box = document.getElementById("dailyChart");
-  if (!perDay.length) { box.innerHTML = '<div class="empty">ยังไม่มีข้อมูล</div>'; return; }
+// Stacked vertical bars: one bar per day, segments coloured by category (trust level or engine).
+function renderStackedChart(containerId, rows, catField, categories, fill, labelFn) {
+  const box = document.getElementById(containerId);
+  if (!rows.length) { box.innerHTML = '<div class="empty">ยังไม่มีข้อมูล</div>'; return; }
 
   const byDay = {};
-  perDay.forEach(r => { (byDay[r.day] || (byDay[r.day] = {}))[r.trust] = r.n; });
+  rows.forEach(r => { (byDay[r.day] || (byDay[r.day] = {}))[r[catField]] = r.n; });
   const days = Object.keys(byDay).sort();
-  const totals = days.map(d => TRUSTS.reduce((s, t) => s + (byDay[d][t] || 0), 0));
+  const totals = days.map(d => categories.reduce((s, c) => s + (byDay[d][c] || 0), 0));
   const max = Math.max(1, ...totals);
 
   const W = 720, H = 260, padL = 34, padR = 8, padT = 12, padB = 44;
@@ -487,22 +519,41 @@ function renderDailyChart(perDay) {
   days.forEach((d, i) => {
     const x = padL + i * step + (step - bw) / 2;
     let y = padT + chh;
-    TRUSTS.forEach(t => {
-      const v = byDay[d][t] || 0;
+    categories.forEach(c => {
+      const v = byDay[d][c] || 0;
       if (!v) return;
       const h = (v / max) * chh;
       y -= h;
-      svg += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="${TRUST_FILL[t]}"><title>${d} · ${trustLabel(t)}: ${v}</title></rect>`;
+      svg += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="${fill[c] || "#9aa3b0"}"><title>${d} · ${labelFn(c)}: ${v}</title></rect>`;
     });
     if (i % labelEvery === 0) {
       svg += `<text x="${(x + bw / 2).toFixed(1)}" y="${H - padB + 16}" text-anchor="middle" class="axis">${d.slice(5)}</text>`;
     }
   });
 
+  const present = categories.filter(c => rows.some(r => r[catField] === c));
   const legend = '<div class="legend">' +
-    TRUSTS.map(t => `<span><i style="background:${TRUST_FILL[t]}"></i>${trustLabel(t)}</span>`).join("") +
+    present.map(c => `<span><i style="background:${fill[c] || "#9aa3b0"}"></i>${labelFn(c)}</span>`).join("") +
     "</div>";
   box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="chart" preserveAspectRatio="xMidYMid meet">${svg}</svg>` + legend;
+}
+
+function renderDailyChart(perDay) {
+  renderStackedChart("dailyChart", perDay, "trust", TRUSTS, TRUST_FILL, trustLabel);
+}
+
+function renderEngineChart(perDayByEngine) {
+  const engines = [...new Set(perDayByEngine.map(r => r.engine))];
+  renderStackedChart("engineChart", perDayByEngine, "engine", engines, ENGINE_FILL, engineLabel);
+}
+
+function renderEngineTotals(byEngine) {
+  const box = document.getElementById("engineTotals");
+  if (!byEngine.length) { box.innerHTML = '<div class="empty">ยังไม่มีข้อมูล</div>'; return; }
+  const total = byEngine.reduce((s, r) => s + r.n, 0);
+  box.innerHTML =
+    `<div class="stat"><b>${total}</b><span>ทั้งหมด</span></div>` +
+    byEngine.map(r => `<div class="stat"><b>${r.n}</b><span>${engineLabel(r.engine)}</span></div>`).join("");
 }
 
 function renderSourceChart(bySource) {
@@ -526,6 +577,8 @@ async function loadStats() {
     renderTrustTotals(data.byTrust ?? []);
     renderDailyChart(data.perDay ?? []);
     renderSourceChart(data.bySource ?? []);
+    renderEngineTotals(data.byEngine ?? []);
+    renderEngineChart(data.perDayByEngine ?? []);
   } catch (err) {
     document.getElementById("dailyChart").innerHTML = '<div class="empty">โหลดสถิติไม่สำเร็จ</div>';
   }

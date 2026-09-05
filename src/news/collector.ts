@@ -1,7 +1,7 @@
 import type { Env } from "../env";
-import { searchTavily, type TavilyResult, type TavilyTimeRange } from "./tavily";
+import { searchTavily, extractTavily, type TavilyResult, type TavilyTimeRange } from "./tavily";
 import { parseFeed } from "./rss";
-import { fetchArticle, fetchHtml } from "./article-content";
+import { fetchArticle, fetchHtml, MAX_LENGTH } from "./article-content";
 import sourcesFile from "../../config/sources.json";
 
 /**
@@ -45,6 +45,9 @@ interface SourcesConfig {
 
 const config = sourcesFile as unknown as SourcesConfig;
 
+/** Which fetch mechanism produced the row — shown as a tag in the dashboard. 'searxng' is reserved; nothing inserts it today. */
+type Engine = "rss" | "page" | "tavily" | "searxng";
+
 interface NewArticle {
   url: string;
   title: string;
@@ -52,6 +55,7 @@ interface NewArticle {
   sourceId: string;
   sourceName: string;
   trust: string;
+  engine: Engine;
   keyword?: string;
   publishedAt?: string;
 }
@@ -135,17 +139,35 @@ function urlMatchesDomain(url: string, domainSpec: string): boolean {
 
 /**
  * Replaces each candidate's thin search/RSS snippet with the article's own
- * lead paragraphs when the fetch succeeds, and fills in a publish date from the
- * page markup when the feed/search result gave none. Run in parallel across the
- * batch; falls back to the original snippet on any failure (blocked, JS-rendered
- * page with no server HTML, timeout, etc) rather than dropping the article.
+ * full text, and fills in a publish date from the page markup when the
+ * feed/search result gave none. Two sources of full text are tried and the
+ * longer result kept, since each succeeds on pages the other is blocked on
+ * (JS-rendered pages, bot-blocking, gzip quirks, etc):
+ *
+ *  1. Tavily's /extract endpoint, but ONLY for engine: "tavily" candidates,
+ *     and only ones that already survived every other filter (domain match,
+ *     MIN_RELEVANCE_SCORE, recency) — it's billed per URL (1 credit/5), so
+ *     paying for a page we were going to discard anyway would be wasted spend.
+ *     This is deliberately a separate call from search, not
+ *     search's own include_raw_content — that bills per URL *returned* by
+ *     search (up to max_results), before any of our filtering.
+ *  2. Our own fetch (article-content.ts) — free, tried for every candidate
+ *     regardless of engine.
  */
-async function enrichWithFullText(candidates: NewArticle[]): Promise<NewArticle[]> {
+async function enrichWithFullText(env: Env, candidates: NewArticle[]): Promise<NewArticle[]> {
+  const tavilyUrls = [...new Set(candidates.filter((a) => a.engine === "tavily").map((a) => a.url))];
+  const extracted = await extractTavily(env, tavilyUrls);
+
   return Promise.all(
     candidates.map(async (a) => {
+      let snippet = a.snippet;
+      const ext = extracted.get(a.url);
+      if (ext && ext.length > snippet.length) snippet = ext.slice(0, MAX_LENGTH);
+
       const article = await fetchArticle(a.url);
-      if (!article) return a;
-      return { ...a, snippet: article.text, publishedAt: a.publishedAt ?? article.publishedAt };
+      if (!article) return { ...a, snippet };
+      if (article.text.length > snippet.length) snippet = article.text;
+      return { ...a, snippet, publishedAt: a.publishedAt ?? article.publishedAt };
     }),
   );
 }
@@ -154,8 +176,8 @@ async function enrichWithFullText(candidates: NewArticle[]): Promise<NewArticle[
 async function insertArticle(env: Env, article: NewArticle): Promise<NewArticle | null> {
   const result = await env.river_watch_db
     .prepare(
-      `INSERT OR IGNORE INTO articles (url, title, snippet, source_id, source_name, trust, keyword, published_at, collected_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT OR IGNORE INTO articles (url, title, snippet, source_id, source_name, trust, engine, keyword, published_at, collected_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       article.url,
@@ -164,6 +186,7 @@ async function insertArticle(env: Env, article: NewArticle): Promise<NewArticle 
       article.sourceId,
       article.sourceName,
       article.trust,
+      article.engine,
       article.keyword ?? null,
       article.publishedAt ?? null,
       new Date().toISOString(),
@@ -201,12 +224,13 @@ async function collectFromRss(env: Env, source: Source): Promise<NewArticle[]> {
         sourceId: source.id,
         sourceName: source.name,
         trust: source.trust,
+        engine: "rss",
         keyword,
         publishedAt: normalizeDate(item.pubDate),
       });
     }
 
-    const enriched = await enrichWithFullText(candidates);
+    const enriched = await enrichWithFullText(env, candidates);
     return persist(env, enriched, maxAgeDaysFor(source));
   } catch (err) {
     console.error(`rss collect failed for ${source.id}`, err);
@@ -268,6 +292,7 @@ async function collectSitesForKeyword(env: Env, siteSources: Source[], keyword: 
       sourceId: source.id,
       sourceName: source.name,
       trust: source.trust,
+      engine: "tavily",
       keyword,
       publishedAt: normalizeDate(r.published_date) ?? parseSnippetDate(r.content),
     });
@@ -280,7 +305,7 @@ async function collectFromTavilySites(env: Env, activeSources: Source[]): Promis
   if (siteSources.length === 0) return [];
 
   const results = await Promise.all(config.keywords.map((keyword) => collectSitesForKeyword(env, siteSources, keyword)));
-  const enriched = await enrichWithFullText(results.flat());
+  const enriched = await enrichWithFullText(env, results.flat());
 
   // Cutoff is per-article using its own source's maxAgeDays, which can differ
   // even though the search above shared one (loosest) time_range.
@@ -354,16 +379,17 @@ async function collectFromPage(env: Env, source: Source): Promise<NewArticle[]> 
         sourceId: source.id,
         sourceName: source.name,
         trust: source.trust,
+        engine: "page",
         keyword,
       });
     }
 
-    const enriched = await enrichWithFullText(candidates);
-    const relevant = source.matchKeywords
+    const enriched = await enrichWithFullText(env, candidates);
+    const topical = source.matchKeywords
       ? enriched.filter((a) => matchesKeyword(`${a.title} ${a.snippet}`, config.keywords))
       : enriched;
 
-    return persist(env, relevant, maxAgeDaysFor(source));
+    return persist(env, topical, maxAgeDaysFor(source));
   } catch (err) {
     console.error(`page collect failed for ${source.id}`, err);
     return [];
@@ -416,11 +442,12 @@ async function collectFollowUpQuery(env: Env, query: string): Promise<NewArticle
       sourceId: "ai-followup",
       sourceName: "ค้นเจาะลึกโดย AI (เว็บเปิด)",
       trust: "web",
+      engine: "tavily",
       keyword: query,
       publishedAt: normalizeDate(r.published_date) ?? parseSnippetDate(r.content),
     }));
 
-    const enriched = await enrichWithFullText(candidates);
+    const enriched = await enrichWithFullText(env, candidates);
     return persist(env, enriched, maxAge);
   } catch (err) {
     console.error(`followup collect failed for "${query}"`, err);

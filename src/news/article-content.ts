@@ -1,6 +1,6 @@
 const FETCH_TIMEOUT_MS = 8000;
-const MAX_LENGTH = 2500;
-const MIN_LENGTH = 200;
+export const MAX_LENGTH = 2500;
+export const MIN_LENGTH = 200;
 
 function decodeEntities(html: string): string {
   return html

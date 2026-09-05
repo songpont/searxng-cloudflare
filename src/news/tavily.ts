@@ -27,6 +27,12 @@ interface TavilySearchOptions {
  * regardless of include_domains size or topic — so collecting several sources
  * through one call with include_domains is free relative to querying them
  * separately, unlike SearXNG's per-request-per-engine model.
+ *
+ * Deliberately never requests include_raw_content here: that bills 1 credit
+ * per 5 URLs *returned by the search* (up to max_results), including every
+ * result our own domain/score/recency filters throw away afterward. Full text
+ * is fetched separately via extractTavily(), only for candidates that survive
+ * every filter — see collector.ts's enrichWithFullText().
  */
 export async function searchTavily(
   env: Env,
@@ -60,4 +66,41 @@ export async function searchTavily(
     console.error(`tavily search errored for "${query}"`, err);
     return [];
   }
+}
+
+const EXTRACT_BATCH_SIZE = 20; // Tavily's per-request cap
+
+/**
+ * Full page text for specific URLs via Tavily's dedicated /extract endpoint —
+ * billed at 1 credit per 5 *successful* URLs (basic depth), independent of
+ * and much cheaper than bundling raw_content into search. Only ever call this
+ * with URLs that have already cleared every other filter (domain match,
+ * MIN_RELEVANCE_SCORE, recency cutoff) — see collector.ts.
+ */
+export async function extractTavily(env: Env, urls: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (!env.TAVILY_API_KEY || urls.length === 0) return out;
+
+  for (let i = 0; i < urls.length; i += EXTRACT_BATCH_SIZE) {
+    const batch = urls.slice(i, i + EXTRACT_BATCH_SIZE);
+    try {
+      const res = await fetch("https://api.tavily.com/extract", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${env.TAVILY_API_KEY}`,
+        },
+        body: JSON.stringify({ urls: batch, extract_depth: "basic", format: "text" }),
+      });
+      if (!res.ok) {
+        console.error(`tavily extract failed (${res.status}): ${await res.text()}`);
+        continue;
+      }
+      const data = (await res.json()) as { results?: { url: string; raw_content: string }[] };
+      for (const r of data.results ?? []) out.set(r.url, r.raw_content);
+    } catch (err) {
+      console.error("tavily extract errored", err);
+    }
+  }
+  return out;
 }
