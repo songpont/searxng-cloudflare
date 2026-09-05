@@ -10,9 +10,7 @@
     "ลบ/เพิ่ม/ปิดชั่วคราวได้อิสระ — ตั้ง \"enabled\": false เพื่อปิดโดยไม่ต้องลบทิ้ง",
     "หลังเก็บข่าวจาก sources ด้านล่างในแต่ละวัน (รอบ 1) ระบบจะให้ AI อ่านหัวข้อที่เจอแล้วสกัดคำค้นเจาะจงเพิ่ม 3-5 คำ (ชื่อบริษัท/หน่วยงาน/สถานที่ที่ถูกพาดพิง) แล้วค้นเว็บเปิดเพิ่มอัตโนมัติ (รอบ 2) — ผลจากรอบนี้ถูก tag trust='web' (ยังไม่ยืนยัน) แยกจาก source list ด้านล่าง ไม่ต้องตั้งค่าอะไรเพิ่มสำหรับส่วนนี้"
   ],
-
   "maxAgeDays": 60,
-
   "keywords": [
     "แม่น้ำกก สารพิษ",
     "แม่น้ำกก ปนเปื้อน",
@@ -23,7 +21,6 @@
     "Mekong river pollution",
     "Salween river contamination"
   ],
-
   "sources": [
     {
       "id": "onwr",
@@ -83,9 +80,432 @@
       "name": "ประชาไท",
       "type": "site",
       "trust": "news",
-      "enabled": false,
+      "enabled": true,
       "domain": "prachatai.com",
-      "note": "ตัวอย่าง source ที่ปิดไว้ก่อน ('enabled': false) เปิดใช้เมื่อพร้อม"
+      "note": "เปิดใช้แล้ว 2026-09-05 (อยู่ในรายชื่อโดเมนที่กำหนด)"
+    },
+    {
+      "id": "thaipbs",
+      "name": "Thai PBS",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "thaipbs.or.th",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "greennews",
+      "name": "GreenNews",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "greennews.agency",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "isranews",
+      "name": "สำนักข่าวอิศรา",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "isranews.org",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "transbordernews",
+      "name": "TransBorder News",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "transbordernews.in.th",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "the101",
+      "name": "The 101 World",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "the101.world",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "sarakadee",
+      "name": "สารคดี",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "sarakadee.com",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "thestandard",
+      "name": "The Standard",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "thestandard.co",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "themomentum",
+      "name": "The Momentum",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "themomentum.co",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "way-magazine",
+      "name": "WAY Magazine",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "waymagazine.org",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "seub",
+      "name": "มูลนิธิสืบนาคะเสถียร",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "seub.or.th",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "enlaw",
+      "name": "EnLAW — นิติธรรมสิ่งแวดล้อม",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "enlawthai.org",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "earththailand",
+      "name": "มูลนิธิโลกสีเขียว (EARTH)",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "earththailand.org",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "bangkokbiznews",
+      "name": "กรุงเทพธุรกิจ",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "bangkokbiznews.com",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "thereporters",
+      "name": "The Reporters",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "thereporters.today",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "matichon",
+      "name": "มติชน",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "matichon.co.th",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "hfocus",
+      "name": "Hfocus",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "hfocus.org",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "thecoverage",
+      "name": "The Coverage",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "thecoverage.info",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "nationalhealth",
+      "name": "สช. — สำนักงานคณะกรรมการสุขภาพแห่งชาติ",
+      "type": "site",
+      "trust": "official",
+      "enabled": true,
+      "domain": "nationalhealth.or.th",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "nhso",
+      "name": "สปสช. — สำนักงานหลักประกันสุขภาพแห่งชาติ",
+      "type": "site",
+      "trust": "official",
+      "enabled": true,
+      "domain": "nhso.go.th",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "thaihealth",
+      "name": "สสส. — สำนักงานกองทุนสนับสนุนการสร้างเสริมสุขภาพ",
+      "type": "site",
+      "trust": "official",
+      "enabled": true,
+      "domain": "thaihealth.or.th",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "codi",
+      "name": "พอช. — สถาบันพัฒนาองค์กรชุมชน",
+      "type": "site",
+      "trust": "official",
+      "enabled": true,
+      "domain": "codi.or.th",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "niems",
+      "name": "สพฉ. — สถาบันการแพทย์ฉุกเฉินแห่งชาติ",
+      "type": "site",
+      "trust": "official",
+      "enabled": true,
+      "domain": "niems.go.th",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "hsri",
+      "name": "สวรส. — สถาบันวิจัยระบบสาธารณสุข",
+      "type": "site",
+      "trust": "official",
+      "enabled": true,
+      "domain": "hsri.or.th",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "ha",
+      "name": "สรพ. — สถาบันรับรองคุณภาพสถานพยาบาล",
+      "type": "site",
+      "trust": "official",
+      "enabled": true,
+      "domain": "ha.or.th",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "pmua",
+      "name": "บพท. — หน่วยบริหารและจัดการทุนด้านการพัฒนาระดับพื้นที่",
+      "type": "site",
+      "trust": "official",
+      "enabled": true,
+      "domain": "pmua.or.th",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "tsri",
+      "name": "สกสว. — สำนักงานคณะกรรมการส่งเสริม ววน.",
+      "type": "site",
+      "trust": "official",
+      "enabled": true,
+      "domain": "tsri.or.th",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "moph",
+      "name": "กระทรวงสาธารณสุข",
+      "type": "site",
+      "trust": "official",
+      "enabled": true,
+      "domain": "moph.go.th",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "m-society",
+      "name": "กระทรวงการพัฒนาสังคมและความมั่นคงของมนุษย์",
+      "type": "site",
+      "trust": "official",
+      "enabled": true,
+      "domain": "m-society.go.th",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "mnre",
+      "name": "กระทรวงทรัพยากรธรรมชาติและสิ่งแวดล้อม",
+      "type": "site",
+      "trust": "official",
+      "enabled": true,
+      "domain": "mnre.go.th",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "moac",
+      "name": "กระทรวงเกษตรและสหกรณ์",
+      "type": "site",
+      "trust": "official",
+      "enabled": true,
+      "domain": "moac.go.th",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "moe",
+      "name": "กระทรวงศึกษาธิการ",
+      "type": "site",
+      "trust": "official",
+      "enabled": true,
+      "domain": "moe.go.th",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "moi",
+      "name": "กระทรวงมหาดไทย",
+      "type": "site",
+      "trust": "official",
+      "enabled": true,
+      "domain": "moi.go.th",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "mhesi",
+      "name": "กระทรวงการอุดมศึกษา วิทยาศาสตร์ วิจัยและนวัตกรรม",
+      "type": "site",
+      "trust": "official",
+      "enabled": true,
+      "domain": "mhesi.go.th",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "thainews-prd",
+      "name": "สำนักข่าวกรมประชาสัมพันธ์",
+      "type": "site",
+      "trust": "official",
+      "enabled": true,
+      "domain": "thainews.prd.go.th",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "prd",
+      "name": "กรมประชาสัมพันธ์",
+      "type": "site",
+      "trust": "official",
+      "enabled": true,
+      "domain": "prd.go.th",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "thaigov",
+      "name": "รัฐบาลไทย (thaigov.go.th)",
+      "type": "site",
+      "trust": "official",
+      "enabled": true,
+      "domain": "thaigov.go.th",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "tpchannel",
+      "name": "T-Public Channel",
+      "type": "site",
+      "trust": "official",
+      "enabled": true,
+      "domain": "tpchannel.org",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "ratchakitcha",
+      "name": "ราชกิจจานุเบกษา",
+      "type": "site",
+      "trust": "official",
+      "enabled": true,
+      "domain": "ratchakitcha.soc.go.th",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "antifakenews",
+      "name": "ศูนย์ต่อต้านข่าวปลอม (DES)",
+      "type": "site",
+      "trust": "official",
+      "enabled": true,
+      "domain": "antifakenewscenter.com",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "stimson",
+      "name": "The Stimson Center (Mekong Dam Monitor)",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "stimson.org",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "sei",
+      "name": "Stockholm Environment Institute Asia",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "sei.org",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "iisd",
+      "name": "International Institute for Sustainable Development",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "iisd.org",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "wri",
+      "name": "World Resources Institute",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "wri.org",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "ieefa",
+      "name": "IEEFA — การเงินและนโยบายพลังงาน",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "ieefa.org",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "crea",
+      "name": "CREA — มลพิษทางอากาศ/PM2.5",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "energyandcleanair.org",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "ember",
+      "name": "Ember — ข้อมูลพลังงานสะอาด",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "ember-climate.org",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
+    },
+    {
+      "id": "csis",
+      "name": "CSIS — ความมั่นคง/ภูมิรัฐศาสตร์ทรัพยากร",
+      "type": "site",
+      "trust": "news",
+      "enabled": true,
+      "domain": "csis.org",
+      "note": "เพิ่มเป็นชุด 2026-09-05 — คัดเฉพาะแหล่งเฉพาะทาง/ภูมิภาค ตัดสำนักข่าวสากลทั่วไป (BBC/Reuters/Bloomberg/Al Jazeera ฯลฯ) ออกเพราะ Tavily domain-restricted search กับคลังข่าวมหาศาลของสำนักข่าวเหล่านั้นให้ผลไม่เกี่ยวข้องปนมาเยอะ (ดูรายละเอียดในบทสนทนา 2026-09-05)"
     },
     {
       "id": "example-page",

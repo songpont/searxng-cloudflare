@@ -9,6 +9,8 @@ export interface TavilyResult {
   content: string;
   /** RFC-822-ish string (e.g. "Sun, 24 May 2026 00:00:00 GMT") when Tavily could determine one — present on most results in practice, despite not being documented in the public API reference. */
   published_date?: string;
+  /** Tavily's own relevance score, 0–1. Low-confidence padding results (Tavily fills up to max_results even when little truly matches) tend to sit well under 0.1 — see MIN_RELEVANCE_SCORE in collector.ts. */
+  score?: number;
 }
 
 interface TavilySearchOptions {

@@ -1,8 +1,21 @@
 import type { Env } from "../env";
-import { searchTavily, type TavilyTimeRange } from "./tavily";
+import { searchTavily, type TavilyResult, type TavilyTimeRange } from "./tavily";
 import { parseFeed } from "./rss";
 import { fetchArticle, fetchHtml } from "./article-content";
 import sourcesFile from "../../config/sources.json";
+
+/**
+ * Tavily pads a domain-restricted query out to max_results even when little
+ * genuinely matches, rather than returning fewer results — those padding hits
+ * are near-random with respect to the query. Measured against our own keyword
+ * set (2026-09-05): real matches scored >= ~0.16 (often much higher), while
+ * padding noise topped out around 0.05. 0.1 sits in that gap with margin.
+ */
+const MIN_RELEVANCE_SCORE = 0.1;
+
+function relevant(results: TavilyResult[]): TavilyResult[] {
+  return results.filter((r) => (r.score ?? 1) >= MIN_RELEVANCE_SCORE);
+}
 
 interface Source {
   id: string;
@@ -238,10 +251,14 @@ async function collectSitesForKeyword(env: Env, siteSources: Source[], keyword: 
     includeDomains: domains,
     timeRange: maxAgeToTimeRange(looseMaxAgeDays(siteSources)),
     topic: "news",
+    // Tavily's cap (20) rather than the client default (10) — with dozens of
+    // domains sharing one query, a small result count would let a few
+    // high-traffic outlets crowd out the smaller/niche ones every time.
+    maxResults: 20,
   });
 
   const candidates: NewArticle[] = [];
-  for (const r of results) {
+  for (const r of relevant(results)) {
     const source = findSourceForUrl(r.url, siteSources);
     if (!source) continue; // e.g. a path-restricted domain (facebook.com/SomePage) that this URL doesn't fall under
     candidates.push({
@@ -392,7 +409,7 @@ async function collectFollowUpQuery(env: Env, query: string): Promise<NewArticle
   try {
     const maxAge = maxAgeDaysFor();
     const results = await searchTavily(env, query, { timeRange: maxAgeToTimeRange(maxAge), topic: "general" });
-    const candidates: NewArticle[] = results.slice(0, 5).map((r) => ({
+    const candidates: NewArticle[] = relevant(results).slice(0, 5).map((r) => ({
       url: r.url,
       title: r.title,
       snippet: (r.content ?? "").slice(0, 500),

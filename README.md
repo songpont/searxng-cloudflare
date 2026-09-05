@@ -232,7 +232,9 @@ npm run deploy
 
 `runDailyCollection` ยิง Tavily **1 query ต่อ keyword** โดยใส่ `include_domains` ครอบทุก `type: site` ที่ `enabled` พร้อมกัน (ไม่ใช่ 1 query ต่อ source ต่อ keyword แบบเดิม) แล้วจับคู่ผลลัพธ์แต่ละอันกลับเข้า source ที่ domain ตรงกัน (ดู `collectFromTavilySites` ใน [`collector.ts`](src/news/collector.ts))
 
-เหตุผล: Tavily คิดเครดิตแบบ **flat 1 credit ต่อ request** ไม่ว่าจะใส่กี่โดเมนใน `include_domains` — ยิงรวมจึงถูกกว่ายิงแยกตรง ๆ ตามจำนวน source (เช่น 3 sources × 8 keywords = 24 query/วัน แบบแยก เหลือแค่ 8 query/วัน แบบรวม) ยิ่งมีหลาย collection ในอนาคตยิ่งคุ้ม
+เหตุผล: Tavily คิดเครดิตแบบ **flat 1 credit ต่อ request** ไม่ว่าจะใส่กี่โดเมนใน `include_domains` (รองรับถึง 300 โดเมน) — ยิงรวมจึงถูกกว่ายิงแยกตรง ๆ ตามจำนวน source มาก เช่น ตอนนี้มี ~50 `type: site` × 8 keywords = 400 query/วัน แบบแยก เหลือแค่ **8 query/วัน** แบบรวม ยิ่งมี source หรือ collection เยอะยิ่งคุ้ม
+
+> **เลือกโดเมนที่ใส่รวมกันให้ระวัง** — จากการทดสอบจริง (2026-09-05) การใส่สำนักข่าวสากลทั่วไปที่มีคลังข่าวมหาศาล (เช่น bbc.com, reuters.com, bloomberg.com, aljazeera.com) ปนกับ keyword ภาษาไทยเฉพาะทาง ทำให้ Tavily คืนข่าวที่ไม่เกี่ยวข้องเลยมาเติมให้ครบ `max_results` (semantic search จับคู่แบบหลวมๆ ข้ามภาษา) แนะนำให้ใช้แหล่งเฉพาะทาง/ภูมิภาคเท่านั้น และมี **`MIN_RELEVANCE_SCORE = 0.1`** ใน [`collector.ts`](src/news/collector.ts) ตัดผลลัพธ์ที่ score ของ Tavily ต่ำกว่านี้ทิ้งเป็นด่านสุดท้าย (ปรับค่าได้ถ้าจำเป็น)
 
 ### การกรองช่วงเวลา
 
